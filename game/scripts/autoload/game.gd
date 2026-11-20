@@ -15,7 +15,6 @@ const BAR_DISTANCES := [120.0, 240.0, 400.0, 640.0, 960.0]
 
 var bars := 0
 var error_boost := 0.0
-var noise_boost := 0.0
 var hacking := false
 var player: Node2D = null
 var player_hidden := false
@@ -65,7 +64,6 @@ func _dev_shot() -> void:
 func new_game() -> void:
 	bars = 0
 	error_boost = 0.0
-	noise_boost = 0.0
 	hacking = false
 	player = null
 	player_hidden = false
@@ -145,9 +143,8 @@ func add_error() -> void:
 	Sfx.play("error")
 
 
-## Loud actions (shots, melee) briefly add a bar and alert nearby mutants.
+## Loud actions (shots, melee) alert nearby mutants.
 func make_noise(at: Vector2, radius: float) -> void:
-	noise_boost = minf(noise_boost + 0.5, 1.0)
 	for e in get_tree().get_nodes_in_group("enemies"):
 		if e.global_position.distance_to(at) <= radius:
 			e.alert()
@@ -174,7 +171,6 @@ func say_line(speaker: String, text: String, radio := false) -> void:
 
 func _physics_process(delta: float) -> void:
 	error_boost = maxf(0.0, error_boost - delta / 6.0)
-	noise_boost = maxf(0.0, noise_boost - delta / 2.0)
 	var new_bars := 0
 	if is_instance_valid(player):
 		var nearest := INF
@@ -184,9 +180,13 @@ func _physics_process(delta: float) -> void:
 			if nearest < BAR_DISTANCES[i]:
 				new_bars = MAX_BARS - i
 				break
-		if hacking:
-			new_bars += 1
-		new_bars += roundi(error_boost) + roundi(noise_boost)
+		# Hacking and hacking errors make the antenna "louder", but only where there is
+		# a network at all: no signal stays no signal. Shots don't change the bars
+		# (they alert mutants via make_noise instead).
+		if new_bars > 0:
+			if hacking:
+				new_bars += 1
+			new_bars += roundi(error_boost)
 	new_bars = clampi(new_bars, 0, MAX_BARS)
 	if new_bars != bars:
 		bars = new_bars

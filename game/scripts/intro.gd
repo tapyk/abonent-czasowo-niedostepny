@@ -4,11 +4,19 @@ extends Control
 const W := 320.0
 const H := 180.0
 const CURN := Vector2(236, 118)       # CURN complex on the horizon
-const T_FLASH := 7.0
-const T_END := 23.0
+const RADIO_CPS := 15.0       # typing speed of the radio lines
+const T_CITY := 12.0          # radio lines end, the window view starts
+const T_FLASH := 15.0
+const T_PHONE := 25.0
+const T_RING := 25.3          # ringback: 4 s (two beeps)
+const T_MESSAGE := 29.6       # operator recording: ~8.4 s
+const T_BLACK := 38.2
+const T_END := 40.7
 
 var _t := 0.0
 var _boomed := false
+var _rang := false
+var _messaged := false
 var _rng := RandomNumberGenerator.new()
 var _buildings: Array = []            # [x, w, h]
 var _antennas: Array = []             # [pos, lit_time]
@@ -43,7 +51,7 @@ func _process(delta: float) -> void:
 	if _t >= T_FLASH and not _boomed:
 		_boomed = true
 		_shake = 1.2
-		Sfx.set_static(0.0)
+		Sfx.set_static(0.3)  # the hiss goes on: the signal is everywhere now
 		Sfx.play("explosion", 0.0, 2.0)
 	# the signal wave lights antennas and mutates people when it reaches them
 	var wave := _wave_radius()
@@ -52,12 +60,19 @@ func _process(delta: float) -> void:
 			a[1] = _t
 			Sfx.play("beep", 0.2, -18.0)
 	for p in _people:
-		if p[2] < 0.0 and _t > 13.0 and wave > absf(p[0] - CURN.x) * 0.6 + 120.0:
+		if p[2] < 0.0 and _t > T_FLASH + 6.0 and wave > absf(p[0] - CURN.x) * 0.6 + 120.0:
 			p[2] = _t
 			Sfx.play("growl", 0.2, -14.0)
 		p[0] = wrapf(p[0] + p[1] * delta * (0.4 if p[2] > 0.0 else 1.0), -10.0, W + 10.0)
-	if _t > 19.0 and _t < 19.1:
-		Sfx.set_static(0.25)
+	if _t >= T_RING and not _rang:
+		_rang = true
+		Sfx.set_static(0.08)
+		Sfx.play("ringback", 0.0, -6.0)
+	if _t >= T_MESSAGE and not _messaged:
+		_messaged = true
+		Sfx.play("unavailable", 0.0, 0.0)
+	if _t >= T_BLACK and _t - get_process_delta_time() < T_BLACK:
+		Sfx.set_static(0.0)
 	if _t > 0.5 and Input.is_action_just_pressed("accept"):
 		_finish()
 	elif _t >= T_END:
@@ -68,6 +83,7 @@ func _process(delta: float) -> void:
 func _finish() -> void:
 	set_process(false)
 	Sfx.set_static(0.0)
+	Sfx.stop_all()
 	get_tree().change_scene_to_file("res://scenes/main.tscn")
 
 
@@ -79,19 +95,19 @@ func _wave_radius() -> float:
 func _draw() -> void:
 	var f := Art.font()
 	var fs := Art.FONT_SIZE
-	if _t < 4.0:
+	if _t < T_CITY:
 		_draw_radio(f, fs)
 		return
-	if _t >= 20.5:
+	if _t >= T_BLACK:
 		draw_rect(Rect2(0, 0, W, H), Color.BLACK)
-		var a := clampf((_t - 20.8) / 0.8, 0.0, 1.0)
+		var a := clampf((_t - T_BLACK - 0.3) / 0.8, 0.0, 1.0)
 		_center(f, "Kilka dni później…", 92, fs, Color(0.85, 0.85, 0.9, a))
 		return
 	var off := Vector2(randf_range(-2, 2), randf_range(-2, 2)) * _shake * 2.0
 	draw_set_transform(off)
 	_draw_city()
 	draw_set_transform(Vector2.ZERO)
-	if _t >= 17.0:
+	if _t >= T_PHONE:
 		_draw_phone(f, fs)
 	# white flash
 	if _t >= T_FLASH:
@@ -103,12 +119,12 @@ func _draw() -> void:
 
 func _draw_radio(f: Font, fs: int) -> void:
 	draw_rect(Rect2(0, 0, W, H), Color.BLACK)
-	var lines := [[0.3, "[RADIO] …komunikat specjalny…"], [1.2, "…awaria w ośrodku badawczym CURN…"],
-		[2.2, "…luki w zabezpieczeniach… sygnał…"], [3.1, "…prosimy nie zbliżać się do…"]]
+	var lines := [[0.4, "[RADIO] …komunikat specjalny…"], [3.0, "…awaria w ośrodku badawczym CURN…"],
+		[5.8, "…luki w zabezpieczeniach… sygnał…"], [8.6, "…prosimy nie zbliżać się do…"]]
 	var y := 70.0
 	for l in lines:
 		if _t > l[0]:
-			var n := int((_t - l[0]) * 30.0)
+			var n := int((_t - l[0]) * RADIO_CPS)
 			var s: String = l[1].substr(0, n)
 			_center(f, s, y, fs, Color(1.0, 0.7, 0.4, 0.9))
 		y += 12.0
@@ -208,13 +224,13 @@ func _draw_blast(dust: float) -> void:
 
 
 func _draw_phone(f: Font, fs: int) -> void:
-	var a := clampf((_t - 17.0) / 0.5, 0.0, 1.0)
+	var a := clampf((_t - T_PHONE) / 0.5, 0.0, 1.0)
 	var r := Rect2(106, 30, 108, 120)
 	draw_rect(r.grow(2), Color(0.1, 0.1, 0.12, a))
 	draw_rect(r, Color(0.04, 0.05, 0.07, a))
 	draw_rect(Rect2(r.position + Vector2(4, 8), r.size - Vector2(8, 20)), Color(0.08, 0.1, 0.14, a))
 	_center_in(f, "MAMA", r, 30, fs, Color(1, 1, 1, a))
-	if _t < 18.6:
+	if _t < T_MESSAGE:
 		var dots := ".".repeat(int(_t * 3.0) % 4)
 		_center_in(f, "łączenie" + dots, r, 46, fs, Color(0.7, 0.75, 0.8, a))
 	else:
@@ -225,11 +241,11 @@ func _draw_phone(f: Font, fs: int) -> void:
 
 
 func _captions(f: Font, fs: int) -> void:
-	var caps := [[4.0, 6.8, "Noc. Widok z okna, 4. piętro."],
-		[9.0, 12.8, "Sygnał z CURNu wszedł do sieci LTE."],
-		[11.0, 12.8, "Każda antena nadaje go dalej."],
-		[13.0, 16.8, "Ludzie w zasięgu mutują."],
-		[14.6, 16.8, "Mutanci idą za sygnałem."]]
+	var caps := [[T_CITY, T_FLASH - 0.2, "Noc. Widok z okna, 4. piętro."],
+		[T_FLASH + 2.0, T_FLASH + 6.4, "Sygnał z CURNu wszedł do sieci LTE."],
+		[T_FLASH + 3.6, T_FLASH + 6.4, "Każda antena nadaje go dalej."],
+		[T_FLASH + 6.6, T_PHONE - 0.1, "Ludzie w zasięgu mutują."],
+		[T_FLASH + 8.0, T_PHONE - 0.1, "Mutanci idą za sygnałem."]]
 	var shown := caps.filter(func(c): return _t >= c[0] and _t < c[1])
 	var y := 170.0 - 11.0 * (shown.size() - 1)
 	for c in shown:

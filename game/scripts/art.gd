@@ -153,6 +153,8 @@ static func font() -> Font:
 		ff.hinting = TextServer.HINTING_NONE
 		ff.subpixel_positioning = TextServer.SUBPIXEL_POSITIONING_DISABLED
 		ff.generate_mipmaps = false
+		# Bitmap font: draw 1:1 at FONT_SIZE, crisp 2x/3x for big titles.
+		ff.fixed_size_scale_mode = TextServer.FIXED_SIZE_SCALE_INTEGER_ONLY
 		f = ff
 	else:
 		f = ThemeDB.fallback_font
@@ -160,6 +162,6 @@ static func font() -> Font:
 	return f
 
 
-## Public Pixel (GGBotNet, CC0): native 8 px, includes Polish diacritics.
-const FONT_PATH := "res://assets/fonts/public_pixel.ttf"
+## Abonent5: the game's own bitmap font.
+const FONT_PATH := "res://assets/fonts/abonent5.fnt"
 const FONT_SIZE := 8

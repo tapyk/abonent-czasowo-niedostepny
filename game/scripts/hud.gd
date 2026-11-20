@@ -32,24 +32,25 @@ func _ready() -> void:
 	root.add_child(status)
 
 	tablet = Tablet.new()
-	tablet.position = VIEW - Vector2(Tablet.W, Tablet.H) - Vector2(3, 3)
+	tablet.base_position = VIEW - Vector2(Tablet.W, Tablet.H) - Vector2(2, 2)
+	tablet.position = tablet.base_position + Vector2(0, Tablet.H - Tablet.PEEK)
 	root.add_child(tablet)
 
 	objective = _label(Color("c8d0d8"))
-	objective.position = Vector2(136, 4)
-	objective.size = Vector2(180, 24)
+	objective.position = Vector2(150, 3)
+	objective.size = Vector2(167, 20)
 	objective.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
 	objective.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	root.add_child(objective)
 
 	prompt = _label(Color("ffe08a"))
-	prompt.position = Vector2(8, 122)
-	prompt.size = Vector2(228, 12)
+	prompt.position = Vector2(4, 126)
+	prompt.size = Vector2(210, 10)
 	prompt.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	root.add_child(prompt)
 
 	dialog = DialogBox.new()
-	dialog.position = Vector2(4, 136)
+	dialog.position = Vector2(3, 150)
 	root.add_child(dialog)
 
 	hack = HackMaze.new()
@@ -74,6 +75,7 @@ func _ready() -> void:
 	big.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	big.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	big.modulate.a = 0.0
+	big.add_theme_font_size_override("font_size", Art.FONT_SIZE * 2)
 	root.add_child(big)
 
 

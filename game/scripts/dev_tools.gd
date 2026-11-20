@@ -98,6 +98,13 @@ func _autotest() -> void:
 	await _frames(3)
 	_check("pistol picked up, 14 rounds", Game.has_pistol and Game.ammo == 14, str(Game.ammo))
 	_check("first mutant in the stairwell", get_tree().get_nodes_in_group("enemies").size() >= 1)
+	p._fire_cd = 0.0
+	p.shoot()
+	await _frames(3)
+	_check("shooting where there is no network keeps 0 bars", Game.bars == 0, str(Game.bars))
+	Game.add_ammo(1)
+	var tab: Control = main.hud.tablet
+	_check("tablet tucked away until hovered", tab.position.y > tab.base_position.y + 20.0, str(tab.position))
 	Game.dev["god"] = true
 	await _use_warp("world")
 	_check("stairs lead to the estate", Game.current_map == "world")

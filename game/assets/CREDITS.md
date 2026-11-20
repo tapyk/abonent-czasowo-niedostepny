@@ -76,3 +76,12 @@ For every pack I read the license on the asset page (Kenney's "License" row, or 
 - **Pixel Art Mechanic's Tool Set** (devilsworkshop): **CC-BY 4.0**. CC0 tool icons existed. Rejected.
 - **LPC** characters/tiles: CC-BY-SA/GPL. Avoided as instructed.
 - No CC0 3/4-view LTE tower was found in the Kenney style. The existing Warped City `prop_antenna.png` (CC0) is kept, along with the city wooden utility poles and the metal mast in `city_tiles.png`.
+
+### Phone audio in the intro (added 2026-11-20)
+
+- `audio/dial_tone.ogg`: ringback tone generated with ffmpeg (425 Hz sine, two 1 s beeps). Made for this project, no third-party content.
+- `audio/phone_unavailable.ogg`: operator recording "abonent czasowo niedostępny", taken at the team's request from YouTube (https://www.youtube.com/watch?v=XRQtjy3IUYE, uploader "Ex Alona"), trimmed to 0.45-8.8 s and loudness-normalised. **Not CC0, license unknown**: an operator's announcement, used as a placeholder for the hackathon only. Replace it with a self-recorded line before any public release.
+
+### Game font (added 2026-11-20)
+
+- `fonts/abonent5.png` + `fonts/abonent5.fnt`: bitmap font drawn for this project (`tools/make_font.py` generates it; no third-party glyphs). Replaces Public Pixel in the game, whose ą/ę glyphs sit higher than the other letters. `public_pixel.ttf` and `pixelzone.ttf` stay in the folder but are no longer used.

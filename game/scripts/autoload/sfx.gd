@@ -19,6 +19,8 @@ const SOUNDS := {
 	"error": ["ui_error.ogg"],
 	"shutdown": ["power_down.ogg"],
 	"explosion": ["explosion.ogg"],
+	"ringback": ["dial_tone.ogg"],
+	"unavailable": ["phone_unavailable.ogg"],
 	"step": ["footstep_concrete_1.ogg", "footstep_concrete_2.ogg", "footstep_concrete_3.ogg"],
 }
 
@@ -65,6 +67,12 @@ func play(sound: String, pitch_jitter := 0.08, volume_db := 0.0) -> void:
 	p.pitch_scale = 1.0 + randf_range(-pitch_jitter, pitch_jitter)
 	p.volume_db = volume_db
 	p.play()
+
+
+## Cut every playing one-shot (e.g. when a cutscene is skipped).
+func stop_all() -> void:
+	for p in _pool:
+		p.stop()
 
 
 func has_sound(sound: String) -> bool:

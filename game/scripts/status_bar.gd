@@ -1,8 +1,8 @@
 extends Control
 ## Top-left status strip: HP, ammo, parts for Fast Farmer, progress items.
 
-const W := 128
-const H := 22
+const W := 96
+const H := 15
 
 var hp := 100
 var max_hp := 100
@@ -26,20 +26,20 @@ func _draw() -> void:
 	draw_rect(Rect2(0, 0, W, H), Color(0.05, 0.06, 0.08, 0.75))
 	draw_rect(Rect2(0, 0, W, H), Color("3a404c"), false, 1.0)
 	# HP
-	draw_rect(Rect2(3, 3, W - 6, 3), Color(1, 1, 1, 0.12))
-	draw_rect(Rect2(3, 3, (W - 6) * float(hp) / max_hp, 3), Color("d94a4a"))
-	var y := 17
+	draw_rect(Rect2(2, 2, W - 4, 2), Color(1, 1, 1, 0.12))
+	draw_rect(Rect2(2, 2, (W - 4) * float(hp) / max_hp, 2), Color("d94a4a"))
+	var y := 12
 	var pistol := Art.scaled("res://assets/sprites/ui/ui_pistol.png", 0.5)
 	var gear := Art.scaled("res://assets/sprites/ui/ui_gear.png", 0.5, Rect2i(), Color(1.0, 0.6, 0.3))
 	var x := 3.0
 	if Game.has_pistol:
-		if pistol: draw_texture(pistol, Vector2(x, y - 8))
+		if pistol: draw_texture(pistol, Vector2(x, y - 7))
 		draw_string(f, Vector2(x + 10, y), str(Game.ammo), HORIZONTAL_ALIGNMENT_LEFT, -1, fs,
 			Color("e8d27a") if Game.ammo > 0 else Color("ff6a5a"))
-		x += 34
-	if gear: draw_texture(gear, Vector2(x, y - 8))
+		x += 26
+	if gear: draw_texture(gear, Vector2(x, y - 7))
 	draw_string(f, Vector2(x + 10, y), str(Game.parts), HORIZONTAL_ALIGNMENT_LEFT, -1, fs, Color("ffa060"))
-	x += 26
+	x += 20
 	var items: PackedStringArray = []
 	if Game.has_sekator: items.append("S")
 	if Game.has_cable: items.append("K1")
