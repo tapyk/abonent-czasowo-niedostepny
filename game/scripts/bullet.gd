@@ -1,18 +1,20 @@
 extends Area2D
-## Pistol round: flies straight, hurts the first mutant it touches, stops on walls.
+## Pistol round.
 
-const SPEED := 360.0
+const SPEED := 340.0
 
 var direction := Vector2.RIGHT
-var _life := 0.9
+var _life := 0.8
+var _done := false
 
 
 func _ready() -> void:
-	body_entered.connect(_on_body_entered)
+	body_entered.connect(_on_hit)
+	area_entered.connect(func(a: Area2D): _on_hit(a.get_parent()))
 	$Sprite.texture = PropArt.bullet()
 	$Sprite.material = Art.unshaded()
 	$Light.texture = Art.light_radial(64)
-	$Sprite.flip_h = direction.x < 0.0
+	rotation = direction.angle()
 
 
 func _physics_process(delta: float) -> void:
@@ -22,8 +24,13 @@ func _physics_process(delta: float) -> void:
 		queue_free()
 
 
-func _on_body_entered(body: Node) -> void:
+func _on_hit(body: Node) -> void:
+	if _done or body == null or body.is_in_group("player"):
+		return
 	if body.is_in_group("enemies"):
-		body.take_damage(1, Vector2(direction.x * 90.0, -40.0))
+		body.take_damage(1, direction * 90.0)
 		Sfx.play("hit")
+	elif body.is_in_group("bushes"):
+		return
+	_done = true
 	queue_free()

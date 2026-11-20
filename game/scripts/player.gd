@@ -1,26 +1,19 @@
 extends CharacterBody2D
-## Johnny Walker.
+## Johnny Walker, top-down.
 
 signal died
 signal hp_changed(hp: int, max_hp: int)
 
 const BULLET := preload("res://scenes/bullet.tscn")
 
-const SPEED := 85.0
-const ACCEL := 900.0
-const FRICTION := 1100.0
-const JUMP_VELOCITY := -330.0
-const GRAVITY := 900.0
-const MAX_FALL := 400.0
-const COYOTE := 0.1
-const JUMP_BUFFER := 0.12
+const SPEED := 72.0
 const FIRE_COOLDOWN := 0.3
 const MELEE_COOLDOWN := 0.45
-const MELEE_RANGE := 22.0
+const MELEE_RANGE := 20.0
 const MAX_HP := 100
 const INVULN := 0.9
-const ONEWAY_BIT := 6
 const BUSH_SLOW := 0.55
+const DIRS := {"move_left": Vector2.LEFT, "move_right": Vector2.RIGHT, "move_up": Vector2.UP, "move_down": Vector2.DOWN}
 
 @onready var sprite: AnimatedSprite2D = $Sprite
 @onready var facing_node: Node2D = $Facing
@@ -29,20 +22,19 @@ const BUSH_SLOW := 0.55
 @onready var camera: Camera2D = $Camera
 
 var hp := MAX_HP
-var facing := 1
+var facing := Vector2.DOWN
 var dead := false
 var hacking := false
+var frozen := false
 var in_bush := 0
-var _coyote := 0.0
-var _jump_buf := 0.0
+var _held: Array[String] = []
 var _fire_cd := 0.0
 var _melee_cd := 0.0
 var _invuln := 0.0
-var _drop_timer := 0.0
 var _reveal := 0.0
 var _step_t := 0.0
 var _melee_anim := 0.0
-var _shoot_anim := 0.0
+var _knock := Vector2.ZERO
 var current_interactable: Node = null
 
 
@@ -50,14 +42,14 @@ func _ready() -> void:
 	add_to_group("player")
 	Game.player = self
 	sprite.sprite_frames = CharacterArt.player_frames()
-	sprite.play("idle")
 	flash.texture = CharacterArt.muzzle_flash()
 	flash.material = Art.unshaded()
 	flash.visible = false
-	$Facing/Flashlight.texture = Art.light_cone(170, 22.0)
-	$Facing/Flashlight.offset = Vector2(85, 0)
-	$Aura.texture = Art.light_radial(96)
+	$Facing/Flashlight.texture = Art.light_cone(150, 24.0)
+	$Facing/Flashlight.offset = Vector2(75, 0)
+	$Aura.texture = Art.light_radial(112)
 	add_child(preload("res://scripts/detect_ring.gd").new())
+	_animate(Vector2.ZERO)
 
 
 func _physics_process(delta: float) -> void:
@@ -66,76 +58,51 @@ func _physics_process(delta: float) -> void:
 	_invuln -= delta
 	_reveal -= delta
 	_melee_anim -= delta
-	_shoot_anim -= delta
-	if _drop_timer > 0.0:
-		_drop_timer -= delta
-		if _drop_timer <= 0.0:
-			set_collision_mask_value(ONEWAY_BIT, true)
 
 	Game.player_hidden = in_bush > 0 and _reveal <= 0.0 and not dead
-	sprite.modulate.a = 0.55 if Game.player_hidden else 1.0
-	if _invuln > 0.0 and not dead:
-		sprite.visible = int(_invuln * 20.0) % 2 == 0
-	else:
-		sprite.visible = true
+	sprite.modulate.a = 0.6 if Game.player_hidden else 1.0
+	sprite.visible = not (_invuln > 0.0 and not dead and int(_invuln * 20.0) % 2 == 1)
 
-	if not is_on_floor():
-		velocity.y = minf(velocity.y + GRAVITY * delta, MAX_FALL)
-
-	if dead or hacking:
-		velocity.x = move_toward(velocity.x, 0.0, FRICTION * delta)
-		move_and_slide()
-		_animate()
-		return
-
-	var dir := Input.get_axis("move_left", "move_right")
+	_track_input()
+	var dir := Vector2.ZERO
+	if not (dead or hacking or frozen) and not _held.is_empty():
+		dir = DIRS[_held.back()]
+		facing = dir
 	var speed := SPEED * (BUSH_SLOW if in_bush > 0 else 1.0)
-	if dir != 0.0:
-		velocity.x = move_toward(velocity.x, dir * speed, ACCEL * delta)
-		facing = 1 if dir > 0.0 else -1
-	else:
-		velocity.x = move_toward(velocity.x, 0.0, FRICTION * delta)
-
-	if is_on_floor():
-		_coyote = COYOTE
-	else:
-		_coyote -= delta
-	if Input.is_action_just_pressed("jump"):
-		_jump_buf = JUMP_BUFFER
-	else:
-		_jump_buf -= delta
-
-	if _jump_buf > 0.0 and Input.is_action_pressed("move_down") and is_on_floor():
-		# Drop through a one-way platform.
-		_jump_buf = 0.0
-		set_collision_mask_value(ONEWAY_BIT, false)
-		_drop_timer = 0.25
-		position.y += 1
-	elif _jump_buf > 0.0 and _coyote > 0.0:
-		velocity.y = JUMP_VELOCITY
-		_jump_buf = 0.0
-		_coyote = 0.0
-		Sfx.play("jump", 0.05, -8.0)
-	if Input.is_action_just_released("jump") and velocity.y < -120.0:
-		velocity.y *= 0.55  # variable jump height
-
-	if Input.is_action_just_pressed("shoot"):
-		shoot()
-	if Input.is_action_just_pressed("melee"):
-		melee()
-
+	_knock = _knock.move_toward(Vector2.ZERO, 900.0 * delta)
+	velocity = dir * speed + _knock
 	move_and_slide()
-	_update_interactable()
-	if Input.is_action_just_pressed("interact") and current_interactable:
-		current_interactable.interact(self)
-	_footsteps(delta)
-	_animate()
+
+	if not (dead or hacking or frozen):
+		if Input.is_action_just_pressed("shoot"):
+			shoot()
+		if Input.is_action_just_pressed("melee"):
+			melee()
+		_update_interactable()
+		if Input.is_action_just_pressed("interact") and current_interactable:
+			current_interactable.interact(self)
+	else:
+		current_interactable = null
+	_footsteps(delta, dir)
+	_animate(dir)
+
+
+## Keeps the order of held direction keys so the newest one wins.
+func _track_input() -> void:
+	for a in DIRS:
+		if Input.is_action_pressed(a):
+			if not _held.has(a):
+				_held.append(a)
+		else:
+			_held.erase(a)
 
 
 func shoot() -> void:
 	if _fire_cd > 0.0:
 		return
 	_fire_cd = FIRE_COOLDOWN
+	if not Game.has_pistol:
+		return
 	if Game.ammo <= 0:
 		Sfx.play("empty")
 		Game.say_line("Johnny", "Pusto. Zostają pięści [K].")
@@ -144,10 +111,9 @@ func shoot() -> void:
 	Game.stats_changed.emit()
 	var b := BULLET.instantiate()
 	b.global_position = muzzle.global_position
-	b.direction = Vector2(facing, 0)
+	b.direction = facing
 	get_parent().add_child(b)
 	Sfx.play("shoot")
-	_shoot_anim = 0.18
 	_reveal = 1.5
 	Game.make_noise(global_position, 150.0)
 	flash.visible = true
@@ -163,8 +129,8 @@ func melee() -> void:
 	var hit := false
 	for e in get_tree().get_nodes_in_group("enemies"):
 		var d: Vector2 = e.global_position - global_position
-		if absf(d.y) < 20.0 and d.x * facing >= -4.0 and absf(d.x) <= MELEE_RANGE:
-			e.take_damage(1, Vector2(facing * 140.0, -80.0))
+		if d.length() <= MELEE_RANGE and (d.length() < 6.0 or d.normalized().dot(facing) > 0.3):
+			e.take_damage(1, facing * 150.0)
 			hit = true
 	if hit:
 		Sfx.play("hit")
@@ -179,8 +145,8 @@ func take_damage(amount: int, from: Vector2) -> void:
 	hp_changed.emit(hp, MAX_HP)
 	Sfx.play("hurt")
 	shake(3.0)
-	var push := signf(global_position.x - from.x)
-	velocity = Vector2((push if push != 0.0 else 1.0) * 160.0, -140.0)
+	var push := global_position - from
+	_knock = (push.normalized() if push.length() > 0.1 else -facing) * 160.0
 	if hp <= 0:
 		_die()
 
@@ -197,20 +163,25 @@ func heal(amount: int) -> void:
 	hp_changed.emit(hp, MAX_HP)
 
 
+## Used by gated doors: step back out of the doorway.
+func bounce_back() -> void:
+	global_position -= facing * 6.0
+
+
 func _die() -> void:
 	dead = true
 	set_hacking(false)
 	died.emit()
 
 
-func respawn(at: Vector2) -> void:
-	global_position = at
+func respawn() -> void:
 	velocity = Vector2.ZERO
+	_knock = Vector2.ZERO
 	hp = MAX_HP
 	dead = false
 	_invuln = 2.0
+	facing = Vector2.DOWN
 	hp_changed.emit(hp, MAX_HP)
-	camera.reset_smoothing()
 
 
 func set_hacking(on: bool) -> void:
@@ -218,42 +189,42 @@ func set_hacking(on: bool) -> void:
 	Game.hacking = on
 
 
+## Nearest interactable within reach, preferring what Johnny is facing.
 func _update_interactable() -> void:
 	var best: Node = null
-	var best_d := 26.0
+	var best_score := INF
 	for n in get_tree().get_nodes_in_group("interactable"):
 		if not n.can_interact():
 			continue
-		var d: float = n.global_position.distance_to(global_position)
-		if d < best_d:
-			best_d = d
+		var at: Vector2 = n.get_interact_position() if n.has_method("get_interact_position") else n.global_position
+		var d: Vector2 = at - (global_position + Vector2(0, -6))
+		if d.length() > 24.0:
+			continue
+		var score := d.length() - (8.0 if d.length() > 0.1 and d.normalized().dot(facing) > 0.5 else 0.0)
+		if score < best_score:
+			best_score = score
 			best = n
 	current_interactable = best
 
 
-func _footsteps(delta: float) -> void:
-	if is_on_floor() and absf(velocity.x) > 20.0:
+func _footsteps(delta: float, dir: Vector2) -> void:
+	if dir != Vector2.ZERO:
 		_step_t -= delta
 		if _step_t <= 0.0:
-			_step_t = 0.32
-			Sfx.play("step", 0.15, -14.0)
+			_step_t = 0.34
+			Sfx.play("step", 0.15, -16.0)
 	else:
 		_step_t = 0.0
 
 
-func _animate() -> void:
-	sprite.flip_h = facing < 0
-	facing_node.scale.x = facing
-	var anim := "idle"
+func _animate(dir: Vector2) -> void:
+	facing_node.rotation = facing.angle()
+	var kind := "walk" if dir != Vector2.ZERO else "idle"
 	if dead:
-		anim = "hurt"
+		kind = "hurt"
 	elif _melee_anim > 0.0:
-		anim = "attack"
-	elif not is_on_floor():
-		anim = "jump" if velocity.y < 0.0 else "fall"
-	elif absf(velocity.x) > 10.0:
-		anim = "run_shoot" if _shoot_anim > 0.0 else "run"
-	elif _shoot_anim > 0.0:
-		anim = "shoot"
-	if sprite.animation != anim and sprite.sprite_frames.has_animation(anim):
+		kind = "attack"
+	var anim := CharacterArt.anim_name(sprite.sprite_frames, kind, facing)
+	sprite.flip_h = CharacterArt.flip_for(sprite.sprite_frames, facing)
+	if sprite.animation != anim:
 		sprite.play(anim)

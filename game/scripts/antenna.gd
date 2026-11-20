@@ -1,5 +1,8 @@
 extends Node2D
-## LTE antenna on a rooftop: red beacon visible from afar, hackable panel at the base.
+## LTE antenna: a signal source with a red beacon visible from afar.
+
+@export var antenna_id := "a1"
+@export var hackable := false
 
 var disabled := false
 var maze_seed := 1
@@ -13,22 +16,28 @@ var _blink := 0.0
 
 
 func _ready() -> void:
-	add_to_group("interactable")
+	disabled = Game.is_antenna_off(antenna_id)
 	add_to_group("antennas")
 	Game.register_antenna(self)
-	maze_seed = 1000 + Game.antennas.size()
+	maze_seed = 1000 + hash(antenna_id) % 1000
 	var mt := PropArt.antenna_mast()
 	mast.texture = mt
-	mast.position = Vector2(4, -mt.get_height())
-	panel.texture = PropArt.antenna_panel()
-	panel.position = Vector2(-4, -panel.texture.get_height() / 2.0)
+	mast.position = Vector2(-mt.get_width() / 2.0, -mt.get_height())
 	beacon.texture = Art.box(Vector2i(3, 3), Color("ff2a2a"))
 	beacon.material = Art.unshaded()
-	beacon.position = mast.position + Vector2(mt.get_width() / 2.0, 1)
+	beacon.position = Vector2(0, -mt.get_height() + 2)
 	beacon_light.position = beacon.position
 	beacon_light.texture = Art.light_radial(128)
-	panel_light.position = panel.position
-	panel_light.texture = Art.light_radial(64)
+	panel.visible = hackable
+	panel_light.visible = hackable
+	if hackable:
+		add_to_group("interactable")
+		panel.texture = PropArt.antenna_panel()
+		panel.position = Vector2(12, -panel.texture.get_height() / 2.0)
+		panel_light.position = panel.position
+		panel_light.texture = Art.light_radial(64)
+	if disabled:
+		_set_off()
 
 
 func _process(delta: float) -> void:
@@ -40,8 +49,13 @@ func _process(delta: float) -> void:
 	beacon_light.energy = 1.3 if on else 0.35
 
 
+## Interaction point is the panel, not the mast base.
+func get_interact_position() -> Vector2:
+	return panel.global_position
+
+
 func can_interact() -> bool:
-	return not disabled
+	return hackable and not disabled
 
 
 func prompt() -> String:
@@ -50,16 +64,21 @@ func prompt() -> String:
 
 func interact(player: Node) -> void:
 	if not Game.has_cable:
-		Game.say_line("Johnny", "Bez kabla się nie podłączę. Technik na dachu coś miał.")
+		Game.say_line("Johnny", "Bez kabla się nie podłączę. Technik obok coś miał.")
 		return
 	get_tree().call_group("hack_ui", "open", self, player)
 
 
 func on_hacked() -> void:
+	_set_off()
+	Sfx.play("shutdown")
+	var c: Vector2i = get_meta("cell", Vector2i.ZERO)
+	Game.notify_antenna_disabled(self, c + Vector2i(1, 2))
+
+
+func _set_off() -> void:
 	disabled = true
 	beacon.visible = false
 	beacon_light.enabled = false
 	panel_light.color = Color(1, 0.3, 0.2)
 	panel_light.energy = 0.2
-	Sfx.play("shutdown")
-	Game.notify_antenna_disabled(self)

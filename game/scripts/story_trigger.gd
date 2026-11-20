@@ -9,9 +9,9 @@ func _ready() -> void:
 	collision_mask = 2
 	var shape := CollisionShape2D.new()
 	var rect := RectangleShape2D.new()
-	rect.size = Vector2(16, 64)
+	rect.size = Vector2(40, 40)
 	shape.shape = rect
-	shape.position = Vector2(0, -32)
+	shape.position = Vector2.ZERO
 	add_child(shape)
 	body_entered.connect(_on_body_entered)
 

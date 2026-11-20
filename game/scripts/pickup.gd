@@ -1,5 +1,5 @@
 extends Area2D
-## Pickups: ammo, medkit, parts (from burnt mutants) and the dead technician's cable.
+## Pickups: pistol, garden shears.
 
 @export var kind := "ammo"
 
@@ -13,15 +13,21 @@ func _ready() -> void:
 	sprite.texture = PropArt.pickup(kind)
 	if kind == "cable":
 		add_to_group("interactable")
-		sprite.position = Vector2(0, -sprite.texture.get_height() / 2.0)
+		sprite.position = Vector2(0, -4)
 	else:
 		body_entered.connect(_on_body_entered)
+		if kind in ["pistol", "sekator"]:
+			var l := PointLight2D.new()
+			l.texture = Art.light_radial(48)
+			l.energy = 0.6
+			l.color = Color(1, 0.9, 0.6)
+			add_child(l)
 
 
 func _process(delta: float) -> void:
 	if kind != "cable":
 		_t += delta * 3.0
-		sprite.position.y = -7.0 + sin(_t) * 1.5
+		sprite.position.y = -2.0 + sin(_t) * 1.0
 
 
 func can_interact() -> bool:
@@ -56,6 +62,17 @@ func _on_body_entered(body: Node) -> void:
 			body.heal(35)
 		"part":
 			Game.add_part()
+		"pistol":
+			Game.has_pistol = true
+			Game.add_ammo(Game.START_AMMO)
+			Game.say_line("Johnny", "Pistolet taty. Zawsze mówił, że kiedyś się przyda. Wolałbym, żeby nie miał racji.")
+			Game.say_line("Tablet", "Strzał: J / LPM. Cios: K / PPM.")
+		"sekator":
+			Game.has_sekator = true
+			Game.stats_changed.emit()
+			Game.say_line("Johnny", "Sekator. Teraz te chaszcze przed blokiem nie mają szans.")
 	_taken = true
+	if has_meta("key"):
+		Game.mark_gone(get_meta("key"))
 	Sfx.play("pickup")
 	queue_free()

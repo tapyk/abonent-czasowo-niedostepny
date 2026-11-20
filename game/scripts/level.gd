@@ -1,9 +1,7 @@
 extends Node2D
-## Builds the level from an ASCII map (one char = one tile) at runtime.
+## Builds one top-down map from res://maps/<name>.txt at runtime.
 
 const T := Art.TILE
-
-@export_file("*.txt") var map_path := "res://maps/level1.txt"
 
 const ENEMY := preload("res://scenes/enemy.tscn")
 const BUSH := preload("res://scenes/bush.tscn")
@@ -11,194 +9,273 @@ const ANTENNA := preload("res://scenes/antenna.tscn")
 const PICKUP := preload("res://scenes/pickup.tscn")
 const PLANE := preload("res://scenes/plane_exit.tscn")
 const TRIGGER := preload("res://scripts/story_trigger.gd")
+const WARP := preload("res://scripts/warp.gd")
 const DECOR := preload("res://scripts/decor.gd")
+const THICKET := preload("res://scripts/thicket.gd")
+const HORDE := preload("res://scripts/horde.gd")
 
+const GROUND := {".": "grass", ",": "grass2", ":": "dirt", "=": "road", "_": "sidewalk",
+	"f": "field", "r": "runway", "o": "floor"}
+const SOLID := {"#": "wall", "R": "roof", "T": "tree", "F": "fence", "w": "iwall",
+	"k": "kitchen", "e": "bed", "t": "table", "v": "plant", "|": "garage"}
+## Keys that get a collision box.
+const COLLIDE := ["wall", "roof", "tree", "fence", "iwall", "kitchen", "bed", "table", "plant", "garage"]
+
+var map_name := ""
 var rows: PackedStringArray
 var width := 0
 var height := 0
-var player_start := Vector2.ZERO
-var back: TileMapLayer
-var terrain: TileMapLayer
+var header := {}
+var darkness := Color(0.25, 0.25, 0.35)
+var player_start := Vector2i(-1, -1)
+var ground: TileMapLayer
+var walls: TileMapLayer
+var above: TileMapLayer
 var entities: Node2D
 
-## Tile keys -> atlas column in the generated atlas.
-const TILE_KEYS := ["solid_top", "solid", "ground_top", "ground", "oneway", "wall_bg", "window_bg", "pole_bg", "wall_side"]
+var _keys: Array[String] = []          # atlas column -> tile key
+var _cells := {}                        # layer -> Array of [Vector2i, key]
 
 
-func build() -> void:
-	var f := FileAccess.open(map_path, FileAccess.READ)
-	rows = f.get_as_text().replace("\r", "").strip_edges(false, true).split("\n")
-	height = rows.size()
-	for r in rows:
-		width = maxi(width, r.length())
-
-	var tileset := _make_tileset()
-	back = TileMapLayer.new()
-	back.name = "Back"
-	back.tile_set = tileset
-	back.collision_enabled = false
-	back.modulate = Color(0.55, 0.55, 0.62)
-	add_child(back)
-	terrain = TileMapLayer.new()
-	terrain.name = "Terrain"
-	terrain.tile_set = tileset
-	add_child(terrain)
-	entities = Node2D.new()
-	entities.name = "Entities"
-	add_child(entities)
-
+func build(name: String) -> void:
+	map_name = name
+	_parse(FileAccess.open("res://maps/%s.txt" % name, FileAccess.READ).get_as_text())
+	if header.has("dark"):
+		var c: PackedStringArray = str(header["dark"]).split(",")
+		darkness = Color(float(c[0]), float(c[1]), float(c[2]))
+	_cells = {"ground": [], "walls": [], "above": []}
+	var spawns: Array = []
 	for y in height:
 		for x in width:
-			_place(x, y, _cell(x, y))
+			var ch := cell(x, y)
+			if GROUND.has(ch):
+				_add("ground", x, y, GROUND[ch])
+			elif SOLID.has(ch):
+				_add("ground", x, y, _ground_under(x, y))
+				_add("walls", x, y, _solid_variant(ch, x, y))
+				if ch == "T" and y > 0:
+					_add("above", x, y - 1, "canopy")
+			else:
+				var warp := _warp_def(ch)
+				if not warp.is_empty() and _between_walls(x, y):
+					_add("ground", x, y, _ground_under(x, y))
+					_add("walls", x, y, "door")
+				elif not warp.is_empty() and map_name == "home":
+					_add("ground", x, y, "floor")
+					_add("walls", x, y, "stairs")
+				else:
+					_add("ground", x, y, _ground_under(x, y))
+				spawns.append([ch, x, y])
+
+	var ts := _make_tileset()
+	ground = _layer("Ground", ts, false, -10)
+	walls = _layer("Walls", ts, true, -9)
+	above = _layer("Above", ts, false, 20)
+	entities = Node2D.new()
+	entities.name = "Entities"
+	entities.y_sort_enabled = true
+	add_child(entities)
+	move_child(above, -1)
+	for layer_name in _cells:
+		var layer: TileMapLayer = {"ground": ground, "walls": walls, "above": above}[layer_name]
+		for e in _cells[layer_name]:
+			layer.set_cell(e[0], 0, Vector2i(_keys.find(e[1]), 0))
+	for s in spawns:
+		_spawn(s[0], s[1], s[2])
 
 
 func bounds() -> Rect2:
 	return Rect2(0, 0, width * T, height * T)
 
 
-func _cell(x: int, y: int) -> String:
+func cell(x: int, y: int) -> String:
 	if y < 0 or y >= height or x < 0:
-		return "#"
+		return ""
 	var r := rows[y]
-	return r[x] if x < r.length() else "."
+	return r[x] if x < r.length() else ""
 
 
-func _is_solid(x: int, y: int) -> bool:
-	return _cell(x, y) == "#"
-
-
-func _place(x: int, y: int, c: String) -> void:
-	var cell := Vector2i(x, y)
-	match c:
-		"#":
-			terrain.set_cell(cell, 0, Vector2i(_solid_key(x, y), 0))
-		"-":
-			terrain.set_cell(cell, 0, Vector2i(TILE_KEYS.find("oneway"), 0))
-			_place_bg(x, y)
-		":":
-			back.set_cell(cell, 0, Vector2i(TILE_KEYS.find("wall_bg"), 0))
-		"w":
-			back.set_cell(cell, 0, Vector2i(TILE_KEYS.find("window_bg"), 0))
-		"|":
-			back.set_cell(cell, 0, Vector2i(TILE_KEYS.find("pole_bg"), 0))
-		".":
-			pass
-		_:
-			_place_bg(x, y)
-			_spawn(c, x, y)
-
-
-## Entity cells inherit the background of their left neighbour.
-func _place_bg(x: int, y: int) -> void:
-	for dx in [-1, 1, -2, 2]:
-		var n := _cell(x + dx, y)
-		if n in [":", "w"]:
-			back.set_cell(Vector2i(x, y), 0, Vector2i(TILE_KEYS.find("wall_bg"), 0))
-			return
-
-
-func _solid_key(x: int, y: int) -> int:
-	var top_open := not _is_solid(x, y - 1)
-	if y >= _ground_row():
-		return TILE_KEYS.find("ground_top" if top_open else "ground")
-	if top_open:
-		return TILE_KEYS.find("solid_top")
-	var side_open := not _is_solid(x - 1, y) or not _is_solid(x + 1, y)
-	return TILE_KEYS.find("wall_side" if side_open else "solid")
-
-
-var _ground_cache := -1
-func _ground_row() -> int:
-	if _ground_cache < 0:
-		_ground_cache = height
-		for y in range(height - 1, -1, -1):
-			var full := true
-			for x in width:
-				if _cell(x, y) != "#":
-					full = false
-					break
-			if not full:
-				_ground_cache = y + 1
-				break
-	return _ground_cache
-
-
-## Feet position for an entity standing in cell (x, y).
+## Feet position of something standing in cell (x, y).
 func feet(x: int, y: int) -> Vector2:
-	return Vector2(x * T + T / 2.0, (y + 1) * T)
+	return Vector2(x * T + T / 2.0, y * T + T - 3)
 
+
+func center(x: int, y: int) -> Vector2:
+	return Vector2(x * T + T / 2.0, y * T + T / 2.0)
+
+
+func to_cell(p: Vector2) -> Vector2i:
+	return Vector2i(floori(p.x / T), floori(p.y / T))
+
+
+func key_for(x: int, y: int) -> String:
+	return "%s:%d,%d" % [map_name, x, y]
+
+
+# --- parsing ---------------------------------------------------------------
+
+func _parse(text: String) -> void:
+	var lines := text.replace("\r", "").split("\n")
+	var i := 0
+	while i < lines.size() and lines[i] != "---":
+		var l := lines[i].strip_edges()
+		if "=" in l:
+			var kv := l.split("=", true, 1)
+			header[kv[0]] = kv[1]
+		i += 1
+	rows = PackedStringArray()
+	for j in range(i + 1, lines.size()):
+		if lines[j] != "":
+			rows.append(lines[j])
+	height = rows.size()
+	for r in rows:
+		width = maxi(width, r.length())
+
+
+func _warp_def(ch: String) -> Dictionary:
+	if not ch.is_valid_int() or not header.has(ch):
+		return {}
+	var p: PackedStringArray = str(header[ch]).split(":")
+	if p[0] != "warp":
+		return {}
+	var d := {"map": p[1], "cell": Vector2i(int(p[2]), int(p[3])), "need": ""}
+	if p.size() > 4 and p[4].begins_with("need="):
+		d["need"] = p[4].trim_prefix("need=")
+	return d
+
+
+func _between_walls(x: int, y: int) -> bool:
+	return SOLID.has(cell(x - 1, y)) and SOLID.has(cell(x + 1, y))
+
+
+func _default_ground() -> String:
+	return GROUND.get(header.get("ground", "."), "grass")
+
+
+## Entities and solid tiles sit on the ground of a neighbouring cell.
+func _ground_under(x: int, y: int) -> String:
+	for d in [Vector2i(-1, 0), Vector2i(1, 0), Vector2i(0, 1), Vector2i(0, -1)]:
+		var n := cell(x + d.x, y + d.y)
+		if GROUND.has(n):
+			return GROUND[n]
+	return _default_ground()
+
+
+## Neighbour-aware variants (edges/corners) so real tilesets can be wired later.
+func _solid_variant(ch: String, x: int, y: int) -> String:
+	var same := func(dx: int, dy: int) -> bool: return cell(x + dx, y + dy) == ch
+	match ch:
+		"R":
+			var v := "t" if not same.call(0, -1) else ("b" if not same.call(0, 1) else "")
+			var h := "l" if not same.call(-1, 0) else ("r" if not same.call(1, 0) else "")
+			return "roof_" + (v + h if v + h != "" else "c")
+		"#":
+			var left: bool = not (same.call(-1, 0) or cell(x - 1, y).is_valid_int())
+			var right: bool = not (same.call(1, 0) or cell(x + 1, y).is_valid_int())
+			return "wall_l" if left else ("wall_r" if right else "wall")
+		"F":
+			return "fence_v" if (same.call(0, -1) or same.call(0, 1)) and not (same.call(-1, 0) or same.call(1, 0)) else "fence"
+		"w":
+			return "iwall" if SOLID.has(cell(x, y + 1)) or y + 1 >= height else "iwall_face"
+	return SOLID[ch]
+
+
+func _add(layer: String, x: int, y: int, key: String) -> void:
+	if not _keys.has(key):
+		_keys.append(key)
+	_cells[layer].append([Vector2i(x, y), key])
+
+
+func _layer(n: String, ts: TileSet, collide: bool, z: int) -> TileMapLayer:
+	var l := TileMapLayer.new()
+	l.name = n
+	l.tile_set = ts
+	l.collision_enabled = collide
+	l.z_index = z
+	add_child(l)
+	return l
+
+
+# --- entities ----------------------------------------------------------------
 
 func _spawn(c: String, x: int, y: int) -> void:
-	var pos := feet(x, y)
 	var node: Node2D = null
+	var gone := Game.is_gone(key_for(x, y))
 	match c:
 		"P":
-			player_start = pos
+			player_start = Vector2i(x, y)
 		"z", "Z":
-			node = ENEMY.instantiate()
-			node.burnt = c == "Z"
+			if not gone:
+				node = ENEMY.instantiate()
+				node.burnt = c == "Z"
 		"b":
 			node = BUSH.instantiate()
+		"B":
+			if not gone:
+				node = THICKET.new()
+		"H":
+			if not Game.is_antenna_off("a1"):
+				node = HORDE.new()
 		"A":
 			node = ANTENNA.instantiate()
-		"a", "m":
-			node = PICKUP.instantiate()
-			node.kind = "ammo" if c == "a" else "medkit"
-		"T":
-			node = PICKUP.instantiate()
-			node.kind = "cable"
+			node.antenna_id = "a1"
+			node.hackable = map_name == "roof"
+		"a", "m", "p", "s", "C":
+			if not gone or c == "C":
+				node = PICKUP.instantiate()
+				node.kind = {"a": "ammo", "m": "medkit", "p": "pistol", "s": "sekator", "C": "cable"}[c]
 		"X":
 			node = PLANE.instantiate()
-		"c", "l":
+		"c":
 			node = DECOR.new()
-			node.kind = "car" if c == "c" else "lamp"
+			node.kind = "car"
 		_:
-			if c.is_valid_int():
-				node = TRIGGER.new()
-				node.trigger_id = c
-	if node:
-		node.position = pos
-		entities.add_child(node)
+			if c.is_valid_int() and header.has(c):
+				var w := _warp_def(c)
+				if w.is_empty():
+					node = TRIGGER.new()
+					node.trigger_id = str(header[c]).split(":")[1]
+				else:
+					node = WARP.new()
+					node.target_map = w["map"]
+					node.target_cell = w["cell"]
+					node.need = w["need"]
+	if node == null:
+		return
+	node.set_meta("cell", Vector2i(x, y))
+	node.set_meta("key", key_for(x, y))
+	# Characters and tall props stand on their feet; areas sit in the cell centre.
+	node.position = feet(x, y) if (node is CharacterBody2D or c in ["A", "X", "c", "C"]) else center(x, y)
+	entities.add_child(node)
 
 
-# --- TileSet --------------------------------------------------------------
+# --- TileSet -----------------------------------------------------------------
 
 func _make_tileset() -> TileSet:
-	var atlas := Image.create_empty(T * TILE_KEYS.size(), T, false, Image.FORMAT_RGBA8)
-	for i in TILE_KEYS.size():
-		var img := _tile_image(TILE_KEYS[i])
-		atlas.blit_rect(img, Rect2i(0, 0, T, T), Vector2i(i * T, 0))
+	var atlas := Image.create_empty(T * _keys.size(), T, false, Image.FORMAT_RGBA8)
+	for i in _keys.size():
+		atlas.blit_rect(_tile_image(_keys[i]), Rect2i(0, 0, T, T), Vector2i(i * T, 0))
 	var ts := TileSet.new()
 	ts.tile_size = Vector2i(T, T)
-	# Physics layer 0: solid ("world", bit 1). Layer 1: one-way platforms (bit 6),
-	# separate so characters can drop through them by toggling one mask bit.
 	ts.add_physics_layer()
 	ts.set_physics_layer_collision_layer(0, 1)
 	ts.set_physics_layer_collision_mask(0, 0)
-	ts.add_physics_layer()
-	ts.set_physics_layer_collision_layer(1, 1 << 5)
-	ts.set_physics_layer_collision_mask(1, 0)
 	var src := TileSetAtlasSource.new()
 	src.texture = ImageTexture.create_from_image(atlas)
 	src.texture_region_size = Vector2i(T, T)
 	ts.add_source(src, 0)
 	var h := T / 2.0
-	for i in TILE_KEYS.size():
+	for i in _keys.size():
 		var coord := Vector2i(i, 0)
 		src.create_tile(coord)
-		var key: String = TILE_KEYS[i]
-		var td := src.get_tile_data(coord, 0)
-		if key in ["solid_top", "solid", "ground_top", "ground", "wall_side"]:
+		var base: String = _keys[i].split("_")[0]
+		if base in COLLIDE:
+			var td := src.get_tile_data(coord, 0)
 			td.add_collision_polygon(0)
 			td.set_collision_polygon_points(0, 0, PackedVector2Array([Vector2(-h, -h), Vector2(h, -h), Vector2(h, h), Vector2(-h, h)]))
-		elif key == "oneway":
-			td.add_collision_polygon(1)
-			td.set_collision_polygon_points(1, 0, PackedVector2Array([Vector2(-h, -h), Vector2(h, -h), Vector2(h, -h + 4), Vector2(-h, -h + 4)]))
-			td.set_collision_polygon_one_way(1, 0, true)
 	return ts
 
 
-## Real tile art if available (see TileArt), otherwise a flat-colour placeholder.
 func _tile_image(key: String) -> Image:
 	var t: Texture2D = TileArt.get_tile(key)
 	if t:
@@ -209,22 +286,4 @@ func _tile_image(key: String) -> Image:
 		if src_img.get_size() != Vector2i(T, T):
 			src_img.resize(T, T, Image.INTERPOLATE_NEAREST)
 		return src_img
-	var img := Image.create_empty(T, T, false, Image.FORMAT_RGBA8)
-	match key:
-		"solid_top":
-			img.fill(Color("5b5f66")); img.fill_rect(Rect2i(0, 0, T, 3), Color("80858d"))
-		"solid", "wall_side":
-			img.fill(Color("4a4d54")); img.fill_rect(Rect2i(0, T - 1, T, 1), Color("3b3d43"))
-		"ground_top":
-			img.fill(Color("3a3328")); img.fill_rect(Rect2i(0, 0, T, 3), Color("4d5a3a"))
-		"ground":
-			img.fill(Color("2e281f"))
-		"oneway":
-			img.fill_rect(Rect2i(0, 0, T, 4), Color("8a7a5a"))
-		"wall_bg":
-			img.fill(Color("2c2e34"))
-		"window_bg":
-			img.fill(Color("2c2e34")); img.fill_rect(Rect2i(2, 2, T - 4, T - 4), Color("151a24"))
-		"pole_bg":
-			img.fill_rect(Rect2i(7, 0, 2, T), Color("555a60"))
-	return img
+	return TileArt.placeholder(key)

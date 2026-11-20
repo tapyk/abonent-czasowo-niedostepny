@@ -2,7 +2,7 @@ extends Control
 ## Johnny's cracked tablet.
 
 const W := 126
-const H := 30
+const H := 38
 
 var hp := 100
 var max_hp := 100
@@ -49,13 +49,17 @@ func _draw() -> void:
 	# HP
 	draw_rect(Rect2(4, 15, W - 8, 3), Color(1, 1, 1, 0.12))
 	draw_rect(Rect2(4, 15, (W - 8) * float(hp) / max_hp, 3), Color("d94a4a"))
-	# ammo / parts / cable
-	var y := H - 2
+	# ammo / parts
+	var y := 29
 	var pistol := Art.scaled("res://assets/sprites/ui/ui_pistol.png", 0.5)
 	var gear := Art.scaled("res://assets/sprites/ui/ui_gear.png", 0.5, Rect2i(), Color(1.0, 0.6, 0.3))
-	if pistol: draw_texture(pistol, Vector2(4, y - 8))
-	draw_string(f, Vector2(14, y), str(Game.ammo), HORIZONTAL_ALIGNMENT_LEFT, -1, fs, Color("e8d27a") if Game.ammo > 0 else Color("ff6a5a"))
+	if Game.has_pistol:
+		if pistol: draw_texture(pistol, Vector2(4, y - 8))
+		draw_string(f, Vector2(14, y), str(Game.ammo), HORIZONTAL_ALIGNMENT_LEFT, -1, fs, Color("e8d27a") if Game.ammo > 0 else Color("ff6a5a"))
 	if gear: draw_texture(gear, Vector2(40, y - 8))
 	draw_string(f, Vector2(50, y), str(Game.parts), HORIZONTAL_ALIGNMENT_LEFT, -1, fs, Color("ffa060"))
-	if Game.has_cable:
-		draw_string(f, Vector2(68, y), "KABEL", HORIZONTAL_ALIGNMENT_LEFT, -1, fs, Color("8fe0a0"))
+	# progress items
+	var items: PackedStringArray = []
+	if Game.has_sekator: items.append("SEKATOR")
+	if Game.has_cable: items.append("KABEL")
+	draw_string(f, Vector2(4, H - 1), " ".join(items), HORIZONTAL_ALIGNMENT_LEFT, -1, fs, Color("8fe0a0"))

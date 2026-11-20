@@ -1,5 +1,5 @@
 extends Node
-## Global game state: signal bars ("kreski"), antennas, inventory, respawn point.
+## Global game state.
 
 signal bars_changed(bars: int)
 signal stats_changed
@@ -8,6 +8,8 @@ signal say(speaker: String, text: String, radio: bool)
 
 const MAX_BARS := 5
 const START_AMMO := 14
+## Antennas that exist in the whole game (MVP: only antenna 1). Radio noise = share still on.
+const ALL_ANTENNAS := ["a1"]
 ## Distance to the nearest active antenna (px) -> base signal bars.
 const BAR_DISTANCES := [120.0, 240.0, 400.0, 640.0, 960.0]
 
@@ -17,12 +19,22 @@ var noise_boost := 0.0
 var hacking := false
 var player: Node2D = null
 var player_hidden := false
+## Antenna nodes in the currently loaded map (signal sources).
 var antennas: Array[Node] = []
+var disabled_ids: Array[String] = []
 var disabled_count := 0
-var respawn_point := Vector2.ZERO
+## Where Johnny comes back after death: map name + cell.
+var respawn_map := "home"
+var respawn_cell := Vector2i(3, 5)
+var current_map := ""
+## Inventory / progress gates.
+var has_pistol := false
+var has_sekator := false
 var has_cable := false
 var parts := 0
-var ammo := START_AMMO
+var ammo := 0
+## Persistent world changes, keyed "map:x,y" -> true.
+var gone := {}
 var flags := {}
 
 ## Dev/test options parsed from the command line (after `--`).
@@ -56,11 +68,17 @@ func new_game() -> void:
 	player = null
 	player_hidden = false
 	antennas.clear()
+	disabled_ids.clear()
 	disabled_count = 0
-	respawn_point = Vector2.ZERO
+	respawn_map = "home"
+	respawn_cell = Vector2i(3, 5)
+	current_map = ""
+	has_pistol = false
+	has_sekator = false
 	has_cable = false
 	parts = 0
-	ammo = START_AMMO
+	ammo = 0
+	gone.clear()
 	flags.clear()
 
 
@@ -73,19 +91,44 @@ func active_antennas() -> Array:
 	return antennas.filter(func(a): return is_instance_valid(a) and not a.disabled)
 
 
+func is_antenna_off(id: String) -> bool:
+	return disabled_ids.has(id)
+
+
 ## 0.0 = clear radio, 1.0 = everything drowned in static.
 func radio_noise() -> float:
-	if antennas.is_empty():
-		return 0.0
-	var n := float(active_antennas().size()) / float(antennas.size())
-	return clampf(0.15 + 0.75 * n, 0.0, 1.0)
+	var on := ALL_ANTENNAS.size() - disabled_ids.size()
+	return clampf(0.15 + 0.75 * float(on) / ALL_ANTENNAS.size(), 0.0, 1.0)
 
 
-func notify_antenna_disabled(a: Node) -> void:
+func notify_antenna_disabled(a: Node, respawn_at: Vector2i) -> void:
+	if disabled_ids.has(a.antenna_id):
+		return
+	disabled_ids.append(a.antenna_id)
 	disabled_count += 1
-	respawn_point = a.global_position + Vector2(-24, -8)
+	respawn_map = current_map
+	respawn_cell = respawn_at
 	antenna_disabled.emit(a)
 	stats_changed.emit()
+
+
+## Persistent removal of map objects (pickups, thickets, killed mutants).
+func mark_gone(key: String) -> void:
+	gone[key] = true
+
+
+func is_gone(key: String) -> bool:
+	return gone.has(key)
+
+
+## Progress gate check by name (used by warps: need=pistol etc.).
+func has(item: String) -> bool:
+	match item:
+		"pistol": return has_pistol
+		"sekator": return has_sekator
+		"cable": return has_cable
+		"a1": return is_antenna_off("a1")
+	return flags.has(item)
 
 
 func add_error() -> void:
@@ -147,7 +190,6 @@ func _setup_input() -> void:
 		"move_right": [KEY_D, KEY_RIGHT],
 		"move_up": [KEY_W, KEY_UP],
 		"move_down": [KEY_S, KEY_DOWN],
-		"jump": [KEY_SPACE, KEY_W, KEY_UP],
 		"shoot": [KEY_J, KEY_CTRL, MOUSE_BUTTON_LEFT],
 		"melee": [KEY_K, KEY_F, MOUSE_BUTTON_RIGHT],
 		"interact": [KEY_E],

@@ -40,9 +40,9 @@ func _draw() -> void:
 	_center(f, "My go wyłączamy.", 72, fs, Color("ff6a5a"))
 	if fmod(_t, 1.0) < 0.65:
 		_center(f, "[ENTER] start", 98, fs, Color("ffe08a"))
-	_center(f, "A/D ruch    SPACJA skok", 124, fs, Color("8a929c"))
-	_center(f, "S+SPACJA zeskok    E akcja", 134, fs, Color("8a929c"))
-	_center(f, "J/LPM strzał    K/PPM cios", 144, fs, Color("8a929c"))
+	_center(f, "WSAD / strzałki  ruch", 124, fs, Color("8a929c"))
+	_center(f, "J/LPM strzał    K/PPM cios", 134, fs, Color("8a929c"))
+	_center(f, "E akcja    ENTER dialog", 144, fs, Color("8a929c"))
 	_center(f, "ESC pauza / wyjście z panelu", 154, fs, Color("8a929c"))
 
 

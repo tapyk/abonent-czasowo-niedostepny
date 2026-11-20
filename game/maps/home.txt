@@ -1,0 +1,13 @@
+name=home
+dark=0.62,0.55,0.48
+0=warp:world:9:10:need=pistol
+---
+wwwwwwwwwwwwwwwwwwww
+wwwwwwwwwwwwwwwwwwww
+wkkooooooeewoooooovw
+woooooooooewoooooovw
+wooootooooowooooo0ow
+wooPopoooooooozoooow
+woooooooooowooooooow
+woooooooooovvoooooow
+wwwwwwwwwwwwwwwwwwww
