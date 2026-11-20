@@ -26,24 +26,24 @@ func _ready() -> void:
 	root.add_child(tablet)
 
 	objective = _label(Color("c8d0d8"))
-	objective.position = Vector2(120, 4)
-	objective.size = Vector2(196, 24)
+	objective.position = Vector2(136, 4)
+	objective.size = Vector2(180, 24)
 	objective.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
 	objective.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	root.add_child(objective)
 
 	prompt = _label(Color("ffe08a"))
-	prompt.position = Vector2(60, 124)
-	prompt.size = Vector2(200, 12)
+	prompt.position = Vector2(20, 120)
+	prompt.size = Vector2(280, 12)
 	prompt.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	root.add_child(prompt)
 
 	dialog = DialogBox.new()
-	dialog.position = Vector2(10, 142)
+	dialog.position = Vector2(10, 136)
 	root.add_child(dialog)
 
 	hack = HackMaze.new()
-	hack.position = Vector2(192, 30)
+	hack.position = Vector2(192, 24)
 	root.add_child(hack)
 
 	fader = ColorRect.new()

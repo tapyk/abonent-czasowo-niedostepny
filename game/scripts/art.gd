@@ -44,6 +44,39 @@ static func box(size: Vector2i, fill: Color, outline := Color.TRANSPARENT) -> Im
 	return t
 
 
+## Decompressed RGBA8 copy of (a region of) an image file; null if missing.
+static func image(path: String, rect := Rect2i()) -> Image:
+	var t := tex(path)
+	if t == null:
+		return null
+	var img := t.get_image()
+	if img.is_compressed():
+		img.decompress()
+	img.convert(Image.FORMAT_RGBA8)
+	if rect.size != Vector2i.ZERO:
+		img = img.get_region(rect)
+	return img
+
+
+## Pixel-art texture scaled once at load time (Lanczos keeps detail when shrinking).
+static func scaled(path: String, scale: float, rect := Rect2i(), tint := Color.WHITE) -> Texture2D:
+	var key := "sc_%s_%f_%s_%s" % [path, scale, rect, tint.to_html()]
+	if _cache.has(key):
+		return _cache[key]
+	var img := image(path, rect)
+	if img == null:
+		return null
+	if scale != 1.0:
+		img.resize(maxi(1, roundi(img.get_width() * scale)), maxi(1, roundi(img.get_height() * scale)), Image.INTERPOLATE_LANCZOS)
+	if tint != Color.WHITE:
+		for y in img.get_height():
+			for x in img.get_width():
+				img.set_pixel(x, y, img.get_pixel(x, y) * tint)
+	var t := ImageTexture.create_from_image(img)
+	_cache[key] = t
+	return t
+
+
 ## Simple 16x24 humanoid used until real character sprites exist.
 static func humanoid(body: Color, head: Color, frame := 0) -> ImageTexture:
 	var key := "hum_%s_%s_%d" % [body.to_html(), head.to_html(), frame]
@@ -114,14 +147,19 @@ static func font() -> Font:
 	if _cache.has("font"):
 		return _cache["font"]
 	var f: Font = null
-	for p in ["res://assets/fonts/pixel_font.ttf", "res://assets/fonts/pixel_font.otf"]:
-		if ResourceLoader.exists(p):
-			f = load(p)
-			break
-	if f == null:
+	if ResourceLoader.exists(FONT_PATH):
+		var ff: FontFile = load(FONT_PATH)
+		ff.antialiasing = TextServer.FONT_ANTIALIASING_NONE
+		ff.hinting = TextServer.HINTING_NONE
+		ff.subpixel_positioning = TextServer.SUBPIXEL_POSITIONING_DISABLED
+		ff.generate_mipmaps = false
+		f = ff
+	else:
 		f = ThemeDB.fallback_font
 	_cache["font"] = f
 	return f
 
 
-const FONT_SIZE := 16
+## Public Pixel (GGBotNet, CC0): native 8 px, includes Polish diacritics.
+const FONT_PATH := "res://assets/fonts/public_pixel.ttf"
+const FONT_SIZE := 8

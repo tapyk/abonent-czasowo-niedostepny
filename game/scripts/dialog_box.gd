@@ -2,7 +2,7 @@ extends Control
 ## Bottom dialog strip.
 
 const W := 300
-const H := 34
+const H := 42
 const CPS := 38.0
 
 var _queue: Array = []
@@ -97,4 +97,4 @@ func _draw() -> void:
 		draw_rect(Rect2(W - 8, 4, 3, 3), Color("ff3a2a") if fmod(_led, 0.5) < 0.25 else Color("5a1a14"))
 	draw_string(f, Vector2(5, 10), label, HORIZONTAL_ALIGNMENT_LEFT, -1, fs, name_col)
 	var txt := _full.substr(0, int(_shown))
-	draw_multiline_string(f, Vector2(5, 20), txt, HORIZONTAL_ALIGNMENT_LEFT, W - 10, fs, 2, Color("e6e6e6"))
+	draw_multiline_string(f, Vector2(5, 21), txt, HORIZONTAL_ALIGNMENT_LEFT, W - 10, fs, 3, Color("e6e6e6"))

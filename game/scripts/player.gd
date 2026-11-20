@@ -42,6 +42,7 @@ var _drop_timer := 0.0
 var _reveal := 0.0
 var _step_t := 0.0
 var _melee_anim := 0.0
+var _shoot_anim := 0.0
 var current_interactable: Node = null
 
 
@@ -56,6 +57,7 @@ func _ready() -> void:
 	$Facing/Flashlight.texture = Art.light_cone(170, 22.0)
 	$Facing/Flashlight.offset = Vector2(85, 0)
 	$Aura.texture = Art.light_radial(96)
+	add_child(preload("res://scripts/detect_ring.gd").new())
 
 
 func _physics_process(delta: float) -> void:
@@ -64,6 +66,7 @@ func _physics_process(delta: float) -> void:
 	_invuln -= delta
 	_reveal -= delta
 	_melee_anim -= delta
+	_shoot_anim -= delta
 	if _drop_timer > 0.0:
 		_drop_timer -= delta
 		if _drop_timer <= 0.0:
@@ -144,6 +147,7 @@ func shoot() -> void:
 	b.direction = Vector2(facing, 0)
 	get_parent().add_child(b)
 	Sfx.play("shoot")
+	_shoot_anim = 0.18
 	_reveal = 1.5
 	Game.make_noise(global_position, 150.0)
 	flash.visible = true
@@ -174,10 +178,18 @@ func take_damage(amount: int, from: Vector2) -> void:
 	_invuln = INVULN
 	hp_changed.emit(hp, MAX_HP)
 	Sfx.play("hurt")
+	shake(3.0)
 	var push := signf(global_position.x - from.x)
 	velocity = Vector2((push if push != 0.0 else 1.0) * 160.0, -140.0)
 	if hp <= 0:
 		_die()
+
+
+func shake(strength: float) -> void:
+	var tw := create_tween()
+	for i in 6:
+		tw.tween_property(camera, "offset", Vector2(randf_range(-1, 1), randf_range(-1, 1)) * strength, 0.03)
+	tw.tween_property(camera, "offset", Vector2.ZERO, 0.03)
 
 
 func heal(amount: int) -> void:
@@ -240,6 +252,8 @@ func _animate() -> void:
 	elif not is_on_floor():
 		anim = "jump" if velocity.y < 0.0 else "fall"
 	elif absf(velocity.x) > 10.0:
-		anim = "run"
+		anim = "run_shoot" if _shoot_anim > 0.0 else "run"
+	elif _shoot_anim > 0.0:
+		anim = "shoot"
 	if sprite.animation != anim and sprite.sprite_frames.has_animation(anim):
 		sprite.play(anim)

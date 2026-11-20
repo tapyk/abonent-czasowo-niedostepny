@@ -35,13 +35,14 @@ func _draw() -> void:
 		draw_texture(_plane, -_plane.get_size() / 2.0)
 		draw_set_transform(Vector2.ZERO)
 	if _t > 2.5:
-		_center(f, "Braun: Proszę przełączyć urządzenia w tryb samolotowy.", 26, fs, Color("e8e8e8"))
+		_center(f, "Braun: Proszę przełączyć urządzenia", 22, fs, Color("e8e8e8"))
+		_center(f, "w tryb samolotowy.", 32, fs, Color("e8e8e8"))
 	if _t > 4.0:
-		_center(f, "Johnny: Już dawno są.", 40, fs, Color("8fc0ff"))
+		_center(f, "Johnny: Już dawno są.", 46, fs, Color("8fc0ff"))
 	if _t > 5.5:
 		_center(f, "TRYB SAMOLOTOWY: WŁĄCZONY", 70, fs, Color("8fe0a0"))
 	if _t > 7.0:
-		_center(f, "Irlandia. Tam wojny nigdy nie było.", 92, fs * 2 if fs < 12 else fs, Color("ffe08a"))
+		_center(f, "Irlandia. Tam wojny nigdy nie było.", 92, fs, Color("ffe08a"))
 	if _t > 9.0 and fmod(_t, 1.0) < 0.65:
 		_center(f, "[ENTER] menu", 120, fs, Color("c0c8d0"))
 

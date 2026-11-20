@@ -1,7 +1,7 @@
 extends Control
 ## Johnny's cracked tablet.
 
-const W := 112
+const W := 126
 const H := 30
 
 var hp := 100
@@ -47,10 +47,15 @@ func _draw() -> void:
 		draw_rect(r, c if on else Color(1, 1, 1, 0.12))
 	draw_string(f, Vector2(26, 12), "LTE" if bars > 0 else "BRAK ZASIĘGU", HORIZONTAL_ALIGNMENT_LEFT, -1, fs, Color("ff6a5a") if bars >= 4 else Color("9aa3ad"))
 	# HP
-	draw_rect(Rect2(4, 17, 50, 4), Color(1, 1, 1, 0.12))
-	draw_rect(Rect2(4, 17, 50.0 * hp / max_hp, 4), Color("d94a4a"))
+	draw_rect(Rect2(4, 15, W - 8, 3), Color(1, 1, 1, 0.12))
+	draw_rect(Rect2(4, 15, (W - 8) * float(hp) / max_hp, 3), Color("d94a4a"))
 	# ammo / parts / cable
-	draw_string(f, Vector2(4, H - 1), "AMMO %d" % Game.ammo, HORIZONTAL_ALIGNMENT_LEFT, -1, fs, Color("e8d27a") if Game.ammo > 0 else Color("ff6a5a"))
-	draw_string(f, Vector2(58, 22), "CZĘŚCI %d" % Game.parts, HORIZONTAL_ALIGNMENT_LEFT, -1, fs, Color("ffa060"))
+	var y := H - 2
+	var pistol := Art.scaled("res://assets/sprites/ui/ui_pistol.png", 0.5)
+	var gear := Art.scaled("res://assets/sprites/ui/ui_gear.png", 0.5, Rect2i(), Color(1.0, 0.6, 0.3))
+	if pistol: draw_texture(pistol, Vector2(4, y - 8))
+	draw_string(f, Vector2(14, y), str(Game.ammo), HORIZONTAL_ALIGNMENT_LEFT, -1, fs, Color("e8d27a") if Game.ammo > 0 else Color("ff6a5a"))
+	if gear: draw_texture(gear, Vector2(40, y - 8))
+	draw_string(f, Vector2(50, y), str(Game.parts), HORIZONTAL_ALIGNMENT_LEFT, -1, fs, Color("ffa060"))
 	if Game.has_cable:
-		draw_string(f, Vector2(58, H - 1), "KABEL", HORIZONTAL_ALIGNMENT_LEFT, -1, fs, Color("8fe0a0"))
+		draw_string(f, Vector2(68, y), "KABEL", HORIZONTAL_ALIGNMENT_LEFT, -1, fs, Color("8fe0a0"))

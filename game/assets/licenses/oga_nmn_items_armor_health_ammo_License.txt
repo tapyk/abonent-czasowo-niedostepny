@@ -1,0 +1,11 @@
+No license file available (single PNG download). License as stated on the asset page:
+
+Asset:   Items - armor, health, ammo
+Author:  Nmn
+Source:  https://opengameart.org/content/items-armor-health-ammo
+File:    https://opengameart.org/sites/default/files/items_paletted.png
+License: CC0 1.0 Universal - OpenGameArt 'License(s): CC0'
+Page text: "Various items for my FPS game. All of these have been created from scratch."
+
+Full CC0 1.0 legal text: https://creativecommons.org/publicdomain/zero/1.0/legalcode
+Retrieved: 2026-11-20

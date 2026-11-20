@@ -26,21 +26,24 @@ func _ready() -> void:
 		Game.has_cable = true
 	if Game.dev.has("autotest"):
 		_autotest.call_deferred()
-	elif Game.dev.has("shot"):
-		_shot.call_deferred()
+	elif Game.dev.has("hack"):
+		_open_hack.call_deferred()
+
+
+func _open_hack() -> void:
+	await _wait(0.3)
+	Game.has_cable = true
+	Game.antennas[0].interact(main.player)
+	var hack: Node = get_tree().get_first_node_in_group("hack_ui")
+	await _wait(0.3)
+	# Steer a bit into the maze so the screenshot shows the trail.
+	for i in 20:
+		hack.dot += Vector2(1.0, 0)
+		hack._trail.append(hack.dot)
 
 
 func _wait(t: float) -> void:
 	await get_tree().create_timer(t, true, true).timeout
-
-
-func _shot() -> void:
-	await _wait(float(Game.dev.get("delay", 1.5)))
-	var img := get_viewport().get_texture().get_image()
-	var path := str(Game.dev["shot"])
-	img.save_png(path)
-	print("SHOT saved ", path, " ", img.get_size())
-	get_tree().quit()
 
 
 func _check(what: String, ok: bool, info := "") -> void:
@@ -92,6 +95,22 @@ func _autotest() -> void:
 	_check("melee hits", victim.hp < vhp)
 	victim.set_physics_process(true)
 
+	# --- mutant AI: noise alerts it, it chases and bites ---
+	var hunter: Node2D = get_tree().get_nodes_in_group("enemies")[0]
+	p.global_position = level.feet(8, 25)
+	hunter.global_position = level.feet(16, 25)
+	hunter.velocity = Vector2.ZERO
+	hunter.state = hunter.State.PATROL
+	await get_tree().physics_frame
+	Game.make_noise(p.global_position, 150.0)
+	var hp0: int = p.hp
+	var waited := 0.0
+	while waited < 5.0 and p.hp == hp0:
+		await get_tree().physics_frame
+		waited += 1.0 / 60.0
+	_check("noise alerts mutant, it chases and bites", p.hp < hp0, "%.1fs" % waited)
+	p.heal(100)
+
 	# --- signal bars near antenna ---
 	var antenna: Node2D = Game.antennas[0]
 	var far := Game.bars
@@ -117,7 +136,19 @@ func _autotest() -> void:
 	var err_before := Game.error_boost
 	hack._fail()
 	_check("maze error raises bars", Game.error_boost > err_before)
-	hack._success()
+	var path: PackedVector2Array = hack.debug_solve()
+	_check("maze solvable with real collision", path.size() > 2, "%d points" % path.size())
+	var touched := false
+	hack.dot = hack.start
+	for waypoint in path:
+		while hack.active and hack.dot.distance_to(waypoint) > 0.01:
+			if not hack.debug_step(waypoint, 1.0 / 60.0):
+				touched = true
+				break
+			await get_tree().physics_frame
+		if touched or not hack.active:
+			break
+	_check("maze walked start -> switch without touching walls", not touched and antenna.disabled)
 	await _wait(0.2)
 	_check("antenna disabled", antenna.disabled and Game.disabled_count == 1)
 	_check("player released from panel", not p.hacking)

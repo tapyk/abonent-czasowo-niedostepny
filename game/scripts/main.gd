@@ -1,8 +1,8 @@
 extends Node2D
 ## Game scene: builds the level, wires player/HUD, runs the story beats of the MVP: flat.
 
-const DARK := Color(0.30, 0.30, 0.40)
-const DARK_AFTER := Color(0.46, 0.46, 0.56)
+const DARK := Color(0.24, 0.24, 0.34)
+const DARK_AFTER := Color(0.42, 0.42, 0.52)
 
 @onready var level: Node2D = $Level
 @onready var player: CharacterBody2D = $Player
@@ -32,6 +32,7 @@ func _ready() -> void:
 	Game.antenna_disabled.connect(_on_antenna_disabled)
 	hud.set_objective("Wyjdź z bloku.")
 	_intro()
+	add_child(preload("res://scripts/pause_menu.gd").new())
 	DevTools.attach(self)
 
 
@@ -46,13 +47,13 @@ func on_trigger(id: String) -> void:
 	match id:
 		"2":
 			Game.say_line("Johnny", "Blok naprzeciwko. Czerwone światło na dachu. Tam.")
-			hud.set_objective("Wejdź na dach bloku naprzeciwko (czerwone światło).")
+			hud.set_objective("Dach bloku naprzeciwko: czerwone światło.")
 		"1":
 			if Game.has_cable:
 				hud.set_objective("Zhakuj panel anteny [E].")
 			else:
 				Game.say_line("Mama", "Panel jest u podstawy masztu. Bez kabla serwisowego się nie podłączysz.", true)
-				hud.set_objective("Znajdź kabel serwisowy (technik na dachu).")
+				hud.set_objective("Znajdź kabel (technik na dachu).")
 		"3":
 			if Game.disabled_count > 0:
 				Game.say_line("Johnny", "Lotnisko. I samolot. Może jednak ktoś stąd odleci.")
@@ -63,16 +64,18 @@ func on_trigger(id: String) -> void:
 func _process(_delta: float) -> void:
 	if Game.has_cable and not Game.flags.has("cable_obj"):
 		Game.flags["cable_obj"] = true
-		hud.set_objective("Zhakuj panel anteny [E]. Mutanci nie poczekają.")
+		hud.set_objective("Zhakuj panel anteny [E].")
 
 
 func _on_antenna_disabled(_a: Node) -> void:
 	create_tween().tween_property(darkness, "color", DARK_AFTER, 3.0)
+	var sky := $Sky
+	create_tween().tween_property(sky.get_node("SkyImage"), "modulate", Color(0.6, 0.58, 0.7), 3.0)
 	hud.show_big("CISZA", Color("8fe0a0"), 1.2)
 	Game.say_line("Mama", "Johnny? Słyszę cię wyraźniej! Antena padła.", true)
 	Game.say_line("Mama", "Na wschodzie jest małe lotnisko. Bez sygnału samolot może wystartować. Idź tam.", true)
 	Game.say_line("Johnny", "Już idę.")
-	hud.set_objective("Idź na wschód, do samolotu na lotnisku.")
+	hud.set_objective("Idź na wschód, do samolotu.")
 
 
 func _on_player_died() -> void:

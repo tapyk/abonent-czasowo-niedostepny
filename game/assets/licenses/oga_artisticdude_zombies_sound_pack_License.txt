@@ -1,0 +1,11 @@
+No license file is included in the archive (zombies.zip). License as stated on the asset page:
+
+Asset:   Zombies Sound Pack
+Author:  artisticdude
+Source:  https://opengameart.org/content/zombies-sound-pack
+License: CC0 1.0 Universal - OpenGameArt 'License(s): CC0'
+Page text: "24 zombie sounds in the .wav format, created for the FOSS RPG Summoning Wars"
+Note: files converted from 24-bit to 16-bit PCM WAV.
+
+Full CC0 1.0 legal text: https://creativecommons.org/publicdomain/zero/1.0/legalcode
+Retrieved: 2026-11-20

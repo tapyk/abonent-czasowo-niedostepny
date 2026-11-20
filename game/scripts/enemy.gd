@@ -26,6 +26,7 @@ var _hurt_t := 0.0
 var _think_t := 0.0
 var _drop_t := 0.0
 var _attack_anim := 0.0
+var _mark: Label
 
 
 func _ready() -> void:
@@ -47,6 +48,15 @@ func _ready() -> void:
 	glow.visible = burnt
 	glow.texture = Art.light_radial(64)
 	Game.antenna_disabled.connect(_on_antenna_disabled)
+	_mark = Label.new()
+	_mark.text = "!"
+	_mark.add_theme_font_override("font", Art.font())
+	_mark.add_theme_font_size_override("font_size", Art.FONT_SIZE)
+	_mark.add_theme_color_override("font_color", Color("ff4a3a"))
+	_mark.material = Art.unshaded()
+	_mark.position = Vector2(-2, -38)
+	_mark.visible = false
+	add_child(_mark)
 
 
 func _physics_process(delta: float) -> void:
@@ -147,6 +157,9 @@ func alert() -> void:
 	if state == State.PATROL:
 		state = State.CHASE
 		_lose_t = 0.0
+		_mark.visible = true
+		Sfx.play("growl", 0.15, -10.0)
+		get_tree().create_timer(0.8).timeout.connect(func(): if is_instance_valid(_mark): _mark.visible = false)
 
 
 func take_damage(amount: int, knock: Vector2) -> void:
@@ -171,7 +184,7 @@ func _die() -> void:
 	collision_layer = 0
 	_drop_loot()
 	var tw := create_tween()
-	tw.tween_property(sprite, "modulate", Color(1, 1, 1, 0), 0.6).set_delay(0.3)
+	tw.tween_property(sprite, "modulate", Color(1, 1, 1, 0), 0.6).set_delay(1.4)
 	tw.tween_callback(queue_free)
 
 
@@ -196,9 +209,11 @@ func _on_antenna_disabled(antenna: Node) -> void:
 
 
 func _animate() -> void:
-	sprite.flip_h = dir < 0
+	sprite.flip_h = dir > 0
 	var anim := "run"
-	if state == State.DEAD or state == State.HURT:
+	if state == State.DEAD:
+		anim = "die"
+	elif state == State.HURT:
 		anim = "hurt"
 	elif _attack_anim > 0.0:
 		anim = "attack"
@@ -209,3 +224,6 @@ func _animate() -> void:
 	if sprite.animation != anim and sprite.sprite_frames.has_animation(anim):
 		sprite.play(anim)
 	sprite.speed_scale = 1.6 if state == State.CHASE else 1.0
+	# Zombie sheets face left and the body sits right of the frame centre.
+	var off := 1.0 if burnt else 2.0
+	sprite.position.x = off if sprite.flip_h else -off

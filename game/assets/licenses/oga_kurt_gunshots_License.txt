@@ -1,0 +1,11 @@
+No license file available (individual WAV downloads). License as stated on the asset page:
+
+Asset:   Gunshots
+Author:  kurt
+Source:  https://opengameart.org/content/gunshots
+File:    https://opengameart.org/sites/default/files/22%20Pistol.wav
+License: CC0 1.0 Universal - OpenGameArt 'License(s): CC0'
+Note: single shots were cut from the multi-shot recording '22 Pistol.wav'.
+
+Full CC0 1.0 legal text: https://creativecommons.org/publicdomain/zero/1.0/legalcode
+Retrieved: 2026-11-20

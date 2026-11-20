@@ -1,0 +1,11 @@
+No license file is included in the archive (swishes.zip). License as stated on the asset page:
+
+Asset:   Swishes Sound Pack
+Author:  artisticdude
+Source:  https://opengameart.org/content/swishes-sound-pack
+License: CC0 1.0 Universal - OpenGameArt 'License(s): CC0'
+Page text: "13 'swish' sound effects (4 lighter ones and 9 heavier ones) in the .wav format"
+Note: files converted from 24-bit to 16-bit PCM WAV.
+
+Full CC0 1.0 legal text: https://creativecommons.org/publicdomain/zero/1.0/legalcode
+Retrieved: 2026-11-20

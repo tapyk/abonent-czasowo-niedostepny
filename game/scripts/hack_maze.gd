@@ -3,12 +3,12 @@ extends Control
 
 const COLS := 8
 const ROWS := 6
-const CELL := 13
+const CELL := 12
 const WALL := 2
 const DOT := 3.0
 const SPEED := 34.0
 const PANEL := Vector2(124, 112)
-const ORIGIN := Vector2(10, 18)  # maze top-left inside the panel
+const ORIGIN := Vector2(10, 16)  # maze top-left inside the panel
 
 var walls: Array[Rect2] = []
 var start := Vector2.ZERO
@@ -149,6 +149,54 @@ func _generate(seed_value: int) -> void:
 	goal = Rect2(o + Vector2(w, h - CELL + 1), Vector2(10, CELL - 2))
 
 
+## Dev/test helper.
+func debug_solve() -> PackedVector2Array:
+	var center := func(c: Vector2i) -> Vector2: return ORIGIN + Vector2(c.x * CELL + CELL / 2.0, c.y * CELL + CELL / 2.0)
+	var prev := {Vector2i(0, 0): Vector2i(-1, -1)}
+	var queue: Array[Vector2i] = [Vector2i(0, 0)]
+	var goal_cell := Vector2i(COLS - 1, ROWS - 1)
+	while not queue.is_empty():
+		var c: Vector2i = queue.pop_front()
+		if c == goal_cell:
+			break
+		for d in [Vector2i.RIGHT, Vector2i.LEFT, Vector2i.DOWN, Vector2i.UP]:
+			var n: Vector2i = c + d
+			if n.x < 0 or n.y < 0 or n.x >= COLS or n.y >= ROWS or prev.has(n):
+				continue
+			var a: Vector2 = center.call(c)
+			var b: Vector2 = center.call(n)
+			var clear := true
+			for i in 13:
+				if _hits_wall(a.lerp(b, i / 12.0)):
+					clear = false
+					break
+			if clear:
+				prev[n] = c
+				queue.append(n)
+	if not prev.has(goal_cell):
+		return PackedVector2Array()
+	var pts := PackedVector2Array()
+	var cur := goal_cell
+	while cur != Vector2i(-1, -1):
+		pts.insert(0, center.call(cur))
+		cur = prev[cur]
+	pts.append(goal.get_center())
+	return pts
+
+
+## Dev/test helper: move the dot toward `target` like the player would.
+func debug_step(target: Vector2, delta: float) -> bool:
+	var next := dot.move_toward(target, SPEED * delta)
+	if _hits_wall(next):
+		_fail()
+		return false
+	dot = next
+	_trail.append(dot)
+	if goal.has_point(dot):
+		_success()
+	return true
+
+
 func _draw() -> void:
 	var bg := Color(0.04, 0.09, 0.06, 0.92)
 	draw_rect(Rect2(Vector2.ZERO, PANEL), bg)
@@ -164,4 +212,5 @@ func _draw() -> void:
 	for p in _trail:
 		draw_rect(Rect2(p - Vector2(0.5, 0.5), Vector2(1, 1)), Color(0.6, 0.9, 1.0, 0.5))
 	draw_rect(Rect2(dot - Vector2(DOT, DOT) / 2.0, Vector2(DOT, DOT)), Color("bff3ff"))
-	draw_string(f, Vector2(5, PANEL.y - 4), "WSAD: sygnał  E: odejdź", HORIZONTAL_ALIGNMENT_LEFT, -1, Art.FONT_SIZE, Color("6fae7f"))
+	draw_string(f, Vector2(5, PANEL.y - 9), "WSAD: sygnał", HORIZONTAL_ALIGNMENT_LEFT, -1, Art.FONT_SIZE, Color("6fae7f"))
+	draw_string(f, Vector2(5, PANEL.y - 1), "E: odejdź", HORIZONTAL_ALIGNMENT_LEFT, -1, Art.FONT_SIZE, Color("6fae7f"))

@@ -33,6 +33,19 @@ func _ready() -> void:
 	process_mode = Node.PROCESS_MODE_ALWAYS
 	_setup_input()
 	_parse_args()
+	if dev.has("shot"):
+		_dev_shot.call_deferred()
+
+
+## --shot=<file.png> [--scene=<name>] [--delay=s]: screenshot of any scene, then quit.
+func _dev_shot() -> void:
+	if dev.has("scene"):
+		get_tree().change_scene_to_file("res://scenes/%s.tscn" % dev["scene"])
+	await get_tree().create_timer(float(dev.get("delay", 1.5)), true, false, true).timeout
+	var img := get_viewport().get_texture().get_image()
+	img.save_png(str(dev["shot"]))
+	print("SHOT saved ", dev["shot"], " ", img.get_size())
+	get_tree().quit()
 
 
 func new_game() -> void:
