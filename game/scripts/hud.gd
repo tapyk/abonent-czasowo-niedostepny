@@ -16,6 +16,8 @@ var dialog: Control
 var hack: Control
 var objective: Label
 var prompt: Label
+var hint: Label
+var _hint_tw: Tween
 var fader: ColorRect
 var big: Label
 
@@ -48,6 +50,13 @@ func _ready() -> void:
 	prompt.size = Vector2(210, 10)
 	prompt.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	root.add_child(prompt)
+
+	hint = _label(Color("9fd8ff"))
+	hint.position = Vector2(4, 22)
+	hint.size = Vector2(220, 10)
+	hint.modulate.a = 0.0
+	root.add_child(hint)
+	Game.hint.connect(show_hint)
 
 	dialog = DialogBox.new()
 	dialog.position = Vector2(3, 150)
@@ -89,6 +98,17 @@ func _label(color: Color) -> Label:
 	l.add_theme_constant_override("shadow_offset_y", 1)
 	l.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	return l
+
+
+## Control tip under the status strip; shows at once, independent of dialog lines.
+func show_hint(text: String, hold := 7.0) -> void:
+	hint.text = text
+	if _hint_tw:
+		_hint_tw.kill()
+	_hint_tw = create_tween()
+	_hint_tw.tween_property(hint, "modulate:a", 1.0, 0.2)
+	_hint_tw.tween_interval(hold)
+	_hint_tw.tween_property(hint, "modulate:a", 0.0, 0.8)
 
 
 func set_objective(text: String) -> void:

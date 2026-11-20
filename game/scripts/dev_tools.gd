@@ -90,6 +90,9 @@ func _autotest() -> void:
 	# --- home: pistol gate ---
 	_check("starts at home", Game.current_map == "home")
 	_check("no pistol at start", not Game.has_pistol and Game.ammo == 0)
+	_check("without a pistol LPM punches instead of shooting", not p.can_shoot())
+	var voice: AudioStreamWAV = Sfx._make_voice(Sfx.VOICES["Mama"], true)
+	_check("voice blips synthesized per speaker", voice.data.size() > 1000, str(voice.data.size()))
 	await _use_warp("world")
 	_check("can't leave home without pistol", Game.current_map == "home")
 	var pistol := _find_child(func(n): return "kind" in n and n.kind == "pistol")
@@ -97,6 +100,11 @@ func _autotest() -> void:
 	p.global_position = pistol.global_position
 	await _frames(3)
 	_check("pistol picked up, 14 rounds", Game.has_pistol and Game.ammo == 14, str(Game.ammo))
+	var q: Array = main.hud.dialog._queue.map(func(x): return x[1])
+	var i_pistol := q.find("Pistolet taty. Oby się nie przydał.")
+	var i_story := q.find("…jestem w domu za jeziorem… zacznij od bloku naprzeciwko…")
+	_check("pickup line jumps ahead of queued story lines", i_pistol >= 0 and (i_story < 0 or i_pistol < i_story), str(q))
+	_check("control hint shown at once on the HUD", main.hud.hint.text.contains("LPM"), main.hud.hint.text)
 	_check("first mutant in the stairwell", get_tree().get_nodes_in_group("enemies").size() >= 1)
 	p._fire_cd = 0.0
 	p.shoot()
@@ -148,6 +156,16 @@ func _autotest() -> void:
 	p._melee_cd = 0.0
 	p.melee()
 	_check("melee hits in facing direction", victim.hp < vhp)
+	var ammo_keep := Game.ammo
+	Game.ammo = 0
+	vhp = victim.hp
+	p._melee_cd = 0.0
+	Input.action_press("shoot")
+	await _frames(2)
+	Input.action_release("shoot")
+	_check("with no ammo LPM / J punches", victim.hp < vhp and p._melee_cd > 0.0, "%d -> %d" % [vhp, victim.hp])
+	Game.ammo = ammo_keep
+	Game.stats_changed.emit()
 	for e in get_tree().get_nodes_in_group("enemies"):
 		e.set_physics_process(true)
 

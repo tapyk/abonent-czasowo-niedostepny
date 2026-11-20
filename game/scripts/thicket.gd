@@ -29,7 +29,7 @@ func prompt() -> String:
 
 func interact(_player: Node) -> void:
 	if not Game.has_sekator:
-		Game.say_line("Johnny", "Za gęsto. Bez sekatora się nie przebiję.")
+		Game.say_line("Johnny", "Za gęsto. Potrzebny sekator.", false, true)
 		return
 	Sfx.play("melee")
 	# Cut the whole clump (neighbouring thicket tiles) at once.

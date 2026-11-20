@@ -42,8 +42,8 @@ func interact(_player: Node) -> void:
 	Game.has_cable = true
 	Game.stats_changed.emit()
 	Sfx.play("pickup")
-	Game.say_line("Johnny", "Kabel serwisowy. Wybacz, kolego. Tobie się już nie przyda.")
-	Game.say_line("Mama", "Podłącz się do panelu. Jak zaczniesz hakować, zrobi się głośno.", true)
+	Game.say_line("Johnny", "Kabel serwisowy. Wybacz, kolego.", false, true)
+	Game.say_line("Mama", "Podłącz się do panelu. Będzie głośno.", true)
 	Game.say_line("Johnny", "Jak głośno?")
 	Game.say_line("Mama", "Bardzo.", true)
 
@@ -65,12 +65,12 @@ func _on_body_entered(body: Node) -> void:
 		"pistol":
 			Game.has_pistol = true
 			Game.add_ammo(Game.START_AMMO)
-			Game.say_line("Johnny", "Pistolet taty. Zawsze mówił, że kiedyś się przyda. Wolałbym, żeby nie miał racji.")
-			Game.say_line("Tablet", "Strzał: LPM (tam, gdzie kursor) albo J. Cios: PPM / K.")
+			Game.show_hint("LPM / J: strzał w kursor   PPM / K: cios")
+			Game.say_line("Johnny", "Pistolet taty. Oby się nie przydał.", false, true)
 		"sekator":
 			Game.has_sekator = true
 			Game.stats_changed.emit()
-			Game.say_line("Johnny", "Sekator. Teraz te chaszcze przed blokiem nie mają szans.")
+			Game.say_line("Johnny", "Sekator. Gąszcz przed blokiem nie ma szans.", false, true)
 	_taken = true
 	if has_meta("key"):
 		Game.mark_gone(get_meta("key"))

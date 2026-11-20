@@ -17,6 +17,7 @@ var _hold := 0.0
 var _radio := false
 var _active := false
 var _led := 0.0
+var _typed := 0
 
 
 func _ready() -> void:
@@ -25,11 +26,18 @@ func _ready() -> void:
 	Game.say.connect(enqueue)
 
 
-func enqueue(speaker: String, text: String, radio: bool) -> void:
+func enqueue(speaker: String, text: String, radio: bool, urgent := false) -> void:
 	# Don't stack the same line (e.g. repeated "no ammo").
 	if _active and _full == text or _queue.any(func(q): return q[1] == text):
 		return
-	_queue.append([speaker, text, radio])
+	if urgent:
+		# Right after the current line, ahead of older story lines.
+		var at := 0
+		while at < _queue.size() and _queue[at][3]:
+			at += 1
+		_queue.insert(at, [speaker, text, radio, true])
+	else:
+		_queue.append([speaker, text, radio, false])
 	if not _active:
 		_next()
 
@@ -49,7 +57,8 @@ func _next() -> void:
 	_radio = q[2]
 	_full = _corrupt(q[1]) if _radio else q[1]
 	_shown = 0.0
-	_hold = 2.6 + _full.length() * 0.06
+	_hold = 1.8 + _full.length() * 0.045
+	_typed = 0
 	var lines := maxi(1, roundi(Art.font().get_multiline_string_size(_full, HORIZONTAL_ALIGNMENT_LEFT,
 		W - PAD * 2, Art.FONT_SIZE).y / LINE))
 	_h = PAD + LINE + lines * LINE + 2.0
@@ -88,11 +97,26 @@ func _process(delta: float) -> void:
 		_shown += CPS * delta
 		if Input.is_action_just_pressed("accept") and not Game.hacking:
 			_shown = _full.length()
+		else:
+			_blip()
+		_typed = int(_shown)
 	else:
-		_hold -= delta
+		# More lines waiting -> don't linger on this one.
+		_hold -= delta * (1.6 if not _queue.is_empty() else 1.0)
 		if _hold <= 0.0 or (Input.is_action_just_pressed("accept") and not Game.hacking):
 			_next()
 	queue_redraw()
+
+
+## Undertale-style voice: one blip per newly typed letter (spaces and punctuation stay silent).
+func _blip() -> void:
+	var now := int(_shown)
+	if now <= _typed or now > _full.length():
+		return
+	var c := _full[now - 1]
+	if c == " " or c in ".,!?…:;-–—()\"'„”":
+		return
+	Sfx.voice(_speaker, _radio)
 
 
 func _draw() -> void:

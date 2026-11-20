@@ -37,4 +37,4 @@ func prompt() -> String:
 
 
 func interact(_player: Node) -> void:
-	Game.say_line("Johnny", "Za dużo ich. Stoją jak przy nadajniku. Dopóki antena nadaje, nie przejdę.")
+	Game.say_line("Johnny", "Za dużo ich. Dopóki antena nadaje, nie przejdę.", false, true)

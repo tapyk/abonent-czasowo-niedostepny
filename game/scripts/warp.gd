@@ -6,7 +6,7 @@ var target_cell := Vector2i.ZERO
 var need := ""
 
 const BLOCKED := {
-	"pistol": "Bez pistoletu taty nie wychodzę. Leży na stole.",
+	"pistol": "Pistolet taty leży na stole. Bez niego nie wychodzę.",
 }
 
 
@@ -25,7 +25,7 @@ func _on_body_entered(body: Node) -> void:
 	if not body.is_in_group("player") or body.dead:
 		return
 	if need != "" and not Game.has(need):
-		Game.say_line("Johnny", BLOCKED.get(need, "Jeszcze nie."))
+		Game.say_line("Johnny", BLOCKED.get(need, "Jeszcze nie."), false, true)
 		body.bounce_back()
 		return
 	get_tree().call_group("story", "warp_to", target_map, target_cell)

@@ -82,7 +82,10 @@ func _physics_process(delta: float) -> void:
 
 	if not (dead or hacking or frozen):
 		if Input.is_action_just_pressed("shoot"):
-			shoot(_aim_dir(MOUSE_BUTTON_LEFT))
+			if can_shoot():
+				shoot(_aim_dir(MOUSE_BUTTON_LEFT))
+			else:
+				melee(_aim_dir(MOUSE_BUTTON_LEFT))
 		if Input.is_action_just_pressed("melee"):
 			melee(_aim_dir(MOUSE_BUTTON_RIGHT))
 	if not (dead or hacking or frozen or riding):
@@ -120,6 +123,10 @@ func _aim_dir(button: MouseButton) -> Vector2:
 	return d
 
 
+func can_shoot() -> bool:
+	return Game.has_pistol and Game.ammo > 0
+
+
 func shoot(dir := Vector2.ZERO) -> void:
 	if dir == Vector2.ZERO:
 		dir = facing
@@ -130,10 +137,12 @@ func shoot(dir := Vector2.ZERO) -> void:
 		return
 	if Game.ammo <= 0:
 		Sfx.play("empty")
-		Game.say_line("Johnny", "Pusto. Zostają pięści [K].")
 		return
 	Game.ammo -= 1
 	Game.stats_changed.emit()
+	if Game.ammo == 0:
+		Game.say_line("Johnny", "Pusto. Dalej pięściami.", false, true)
+		Game.show_hint("Bez amunicji LPM to cios")
 	var b := BULLET.instantiate()
 	b.global_position = global_position + Vector2(0, -6) + dir * 8.0
 	b.direction = dir

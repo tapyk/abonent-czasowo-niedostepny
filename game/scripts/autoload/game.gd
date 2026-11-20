@@ -4,7 +4,9 @@ extends Node
 signal bars_changed(bars: int)
 signal stats_changed
 signal antenna_disabled(antenna: Node)
-signal say(speaker: String, text: String, radio: bool)
+signal say(speaker: String, text: String, radio: bool, urgent: bool)
+## Short control tip shown on the HUD right away, apart from the dialog queue.
+signal hint(text: String)
 
 const MAX_BARS := 5
 const START_AMMO := 14
@@ -165,8 +167,13 @@ func take_parts(n: int) -> void:
 	stats_changed.emit()
 
 
-func say_line(speaker: String, text: String, radio := false) -> void:
-	say.emit(speaker, text, radio)
+## `urgent` lines (reactions to what the player just did) jump the dialog queue.
+func say_line(speaker: String, text: String, radio := false, urgent := false) -> void:
+	say.emit(speaker, text, radio, urgent)
+
+
+func show_hint(text: String) -> void:
+	hint.emit(text)
 
 
 func _physics_process(delta: float) -> void:

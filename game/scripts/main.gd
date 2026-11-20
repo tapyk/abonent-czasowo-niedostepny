@@ -38,10 +38,11 @@ func _exit_tree() -> void:
 
 
 func _intro() -> void:
-	Game.say_line("Tablet", "Abonent czasowo niedostępny. Prosimy spróbować później.")
+	hud.show_hint("WASD: ruch   E: akcja   LPM: cios   Enter: dalej")
+	Game.say_line("Tablet", "Abonent czasowo niedostępny.")
 	Game.say_line("Johnny", "Później. Jasne.")
-	Game.say_line("Mama", "Johnny… nie dzwoń… oni idą za sygnałem… wyłącz… anteny… jestem w domu… za jeziorem…", true)
-	Game.say_line("Mama", "…zacznij od… bloku naprzeciwko…", true)
+	Game.say_line("Mama", "Johnny… nie dzwoń… idą za sygnałem… wyłącz anteny…", true)
+	Game.say_line("Mama", "…jestem w domu za jeziorem… zacznij od bloku naprzeciwko…", true)
 
 
 func _brightness() -> float:
@@ -116,16 +117,16 @@ func _once(flag: String, lines: Array) -> void:
 func _on_enter_map(map_name: String) -> void:
 	match map_name:
 		"world":
-			_once("world_seen", [["Johnny", "Blok naprzeciwko. Czerwone światło na dachu. Tam."]])
+			_once("world_seen", [["Johnny", "Blok naprzeciwko. Czerwone światło na dachu."]])
 		"stodola":
-			_once("stodola_seen", [["Johnny", "Ściany obite folią aluminiową. Zero kresek. Klatka Faradaya serio działa."]])
+			_once("stodola_seen", [["Johnny", "Folia aluminiowa na ścianach. Zero kresek."]])
 		"szczelina":
-			_once("szczelina_seen", [["Johnny", "Szczelina. Ziemia pękła po wybuchu CURNu."],
-				["Mama", "Nad szczeliną… jest tyrolka. Uważaj… coś na niej wisi…", true]])
+			_once("szczelina_seen", [["Johnny", "Szczelina po wybuchu CURNu."],
+				["Mama", "Nad szczeliną tyrolka… coś na niej wisi…", true]])
 		"trybunal":
-			_once("trybunal_seen", [["Johnny", "Trybunał CURN. Ogród pełen mutantów, a na środku placu… facet w garniturze."]])
+			_once("trybunal_seen", [["Johnny", "Trybunał CURN. Pełno mutantów. I facet w garniturze."]])
 		"mama":
-			_once("mama_shore_seen", [["Johnny", "Brzeg. Dom mamy jest na górce. I… odrzutowiec na pasie?"]])
+			_once("mama_shore_seen", [["Johnny", "Dom mamy na górce. I odrzutowiec na pasie?"]])
 
 
 func objective() -> String:
@@ -182,9 +183,9 @@ func _process(_delta: float) -> void:
 		Game.flags["trybunal_clear"] = true
 		hud.show_big("TRYBUNAŁ CZYSTY", Color("8fe0a0"), 1.0)
 		if Game.flags.has("braun_met"):
-			Game.say_line("Johnny", "Ostatni. Ogród Trybunału czysty.")
+			Game.say_line("Johnny", "Ostatni. Ogród czysty.")
 			if not Game.is_antenna_off("a3"):
-				Game.say_line("Johnny", "Została antena w ogrodzie.")
+				Game.say_line("Johnny", "Została antena.")
 			else:
 				Game.say_line("Johnny", "Wracam do Brauna.")
 	var o := objective()
@@ -198,10 +199,10 @@ func on_trigger(id: String) -> void:
 		"thicket":
 			Game.flags["thicket_seen"] = true
 			if not Game.has_sekator:
-				Game.say_line("Johnny", "Chaszcze zarosły całe przejście. Bez sekatora nie przejdę.")
+				Game.say_line("Johnny", "Gąszcz. Bez sekatora nie przejdę.", false, true)
 		"horde":
 			if not Game.is_antenna_off("a1"):
-				Game.say_line("Johnny", "Horda na drodze. Stoją i nasłuchują sygnału. Nie przebiję się.")
+				Game.say_line("Johnny", "Horda nasłuchuje sygnału. Nie przejdę.", false, true)
 		"barn":
 			if not Game.flags.has("farmer_met"):
 				_once("barn_seen", [["???", "Stój! Masz telefon? Włączony?!"],
@@ -212,11 +213,11 @@ func on_trigger(id: String) -> void:
 		"crevice":
 			pass
 		"zip_boss":
-			Game.say_line("Johnny", "Coś jedzie z drugiej strony liny!")
+			Game.say_line("Johnny", "Coś jedzie z drugiej strony!", false, true)
 			_once("zip_boss_seen", [["Mama", "Tyrolkowy… [szum]… strzelaj, zanim cię zrzuci!", true]])
 		"zip_boss_dead":
 			hud.show_big("TYROLKOWY MUTANT POKONANY", Color("ffb060"), 1.0)
-			Game.say_line("Johnny", "Leć. Daleko leć.")
+			Game.say_line("Johnny", "Leć. Daleko.")
 		"zip_across":
 			_once("zip_across", [["Johnny", "Druga strona. Trybunał CURN jest na wschód."]])
 
@@ -253,17 +254,14 @@ func on_npc(id: String) -> void:
 func _talk_farmer() -> void:
 	if not Game.flags.has("farmer_met"):
 		Game.flags["farmer_met"] = true
-		Game.say_line("Farmer", "Stój! Masz telefon? Włączony?")
+		Game.say_line("Farmer", "Stój! Telefon włączony?")
 		Game.say_line("Johnny", "…Już nie.")
-		Game.say_line("Farmer", "Dwadzieścia lat im mówiłem, że ta sieć nas kiedyś zje. Śmiali się. No i kto się teraz śmieje?")
-		Game.say_line("Johnny", "Na pewno nie oni.")
-		Game.say_line("Farmer", "Kable do następnych anten ci dam. Ale przynieś mi trzy części od spalonych.")
-		Game.say_line("Farmer", "I nie przyprowadzaj mi ich razem z właścicielami.")
+		Game.say_line("Farmer", "Dwadzieścia lat mówiłem, że ta sieć nas zje.")
+		Game.say_line("Farmer", "Kable do anten dam. Za trzy części od spalonych.")
 		if Game.parts < PARTS_NEEDED:
 			return
 	if Game.has_kable:
-		Game.say_line("Farmer", "Kable masz. Antena stoi na plantacji za polami. Kiedyś palmy, ochrona, helikoptery. Jak na Cayo Perico.")
-		Game.say_line("Farmer", "Teraz tylko spaleni. I niech ci się nie wydaje, że cię nie słyszą.")
+		Game.say_line("Farmer", "Kable masz. Antena jest na plantacji na wschodzie. Cayo Perico, tylko ze spalonymi.")
 		return
 	if Game.parts >= PARTS_NEEDED:
 		Game.take_parts(PARTS_NEEDED)
@@ -271,59 +269,58 @@ func _talk_farmer() -> void:
 		Game.stats_changed.emit()
 		Sfx.play("pickup")
 		hud.show_big("KABLE OD FARMERA", Color("8fe0a0"), 0.8)
-		Game.say_line("Farmer", "Trzy. Dobrze. Masz tu kable. Pasują do anten na plantacji i w Trybunale.")
-		Game.say_line("Farmer", "Plantacja jest za polami, na wschodzie. Ktoś tam sobie zrobił Cayo Perico. Palmy, plantacja, wszystko.")
+		Game.say_line("Farmer", "Trzy. Masz kable. Pasują do plantacji i Trybunału.")
+		Game.say_line("Farmer", "Plantacja na wschodzie. Palmy jak na Cayo Perico.")
 		Game.say_line("Johnny", "A teraz?")
 		Game.say_line("Farmer", "Teraz rośnie tam tylko sygnał.")
 	else:
-		Game.say_line("Farmer", "Trzy części od spalonych. Masz %d. Spaleni świecą w ciemności, nie przegapisz." % Game.parts)
+		Game.say_line("Farmer", "Trzy części od spalonych. Masz %d. Świecą w ciemności." % Game.parts)
 
 
 func _talk_braun() -> void:
 	if Game.current_map == "mama":
 		if not Game.flags.has("mama_met"):
-			Game.say_line("Braun", "Silniki grzeją się. Proszę najpierw zabrać matkę, panie Walker.")
+			Game.say_line("Braun", "Najpierw matka, panie Walker.")
 		else:
-			Game.say_line("Braun", "Proszę wsiadać. Lot do Irlandii, bez międzylądowań.")
+			Game.say_line("Braun", "Proszę wsiadać. Lot do Irlandii.")
 		return
 	if not Game.flags.has("braun_met"):
 		Game.flags["braun_met"] = true
-		Game.say_line("Braun", "Kto pana upoważnił do przebywania na terenie Trybunału?")
+		Game.say_line("Braun", "Kto pana tu wpuścił?")
 		Game.say_line("Johnny", "Pana ogród jest pełen mutantów.")
-		Game.say_line("Braun", "Zauważyłem. Dlatego stoję tu, a nie tam.")
-		Game.say_line("Braun", "Proponuję umowę. Pan oczyści Trybunał z mutantów i wyłączy antenę w ogrodzie.")
-		Game.say_line("Braun", "Ja mam łódkę na przystani i odrzutowiec po drugiej stronie jeziora. Jest w nim miejsce.")
-		Game.say_line("Johnny", "Dom mamy jest po drugiej stronie jeziora.")
-		Game.say_line("Braun", "W takim razie mamy wspólny interes. Proszę zaczynać.")
+		Game.say_line("Braun", "Dlatego stoję tutaj.")
+		Game.say_line("Braun", "Umowa: oczyści pan Trybunał i wyłączy antenę w ogrodzie.")
+		Game.say_line("Braun", "Ja mam łódkę i odrzutowiec za jeziorem.")
+		Game.say_line("Johnny", "Dom mamy jest za jeziorem.")
+		Game.say_line("Braun", "Wspólny interes. Proszę zaczynać.")
 		return
 	if Game.flags.has("braun_done"):
-		Game.say_line("Braun", "Łódka na przystani. Spotkamy się przy odrzutowcu. Ja dopłynę pontonem.")
+		Game.say_line("Braun", "Łódka na przystani. Spotkamy się przy odrzutowcu.")
 		return
 	if _trybunal_done():
 		Game.flags["braun_done"] = true
 		Sfx.play("pickup")
-		Game.say_line("Braun", "Cisza. Pierwszy raz od tygodnia. Proszę, kluczyk do łodzi.")
-		Game.say_line("Braun", "Odrzutowiec stoi na pasie przy domu pańskiej matki. Ja dopłynę pontonem, mam jeszcze dokumenty do podpisania.")
+		Game.say_line("Braun", "Cisza. Proszę, kluczyk do łodzi.")
+		Game.say_line("Braun", "Odrzutowiec czeka przy domu pańskiej matki. Mam jeszcze dokumenty do podpisania.")
 		Game.say_line("Johnny", "Komu?")
 		Game.say_line("Braun", "Sobie. Ktoś musi.")
 		return
 	var left := _mutants_left()
 	if not Game.flags.has("trybunal_clear"):
-		Game.say_line("Braun", "Wciąż słyszę ich w ogrodzie. Zostało jeszcze %d." % left if left > 0 else "Wciąż słyszę ich w ogrodzie.")
+		Game.say_line("Braun", "Słyszę ich jeszcze. Zostało %d." % left if left > 0 else "Słyszę ich jeszcze.")
 	else:
-		Game.say_line("Braun", "Mutanci załatwieni, ale antena w ogrodzie dalej nadaje. Proszę ją wyłączyć.")
+		Game.say_line("Braun", "Antena w ogrodzie dalej nadaje.")
 
 
 func _talk_mama() -> void:
 	if Game.flags.has("mama_met"):
-		Game.say_line("Mama", "Braun czeka przy odrzutowcu. Chodź, zanim ktoś znowu włączy zasięg.")
+		Game.say_line("Mama", "Braun czeka przy odrzutowcu. Chodź.")
 		return
 	Game.flags["mama_met"] = true
 	hud.show_big("MAMA", Color("ffe08a"), 0.8)
-	Game.say_line("Johnny", "Cześć, mamo. Abonent już dostępny?")
-	Game.say_line("Mama", "Potem się przytulimy.")
-	Game.say_line("Mama", "Słyszałam przez radio, że Braun ma odrzutowiec. Stoi na pasie za domem.")
-	Game.say_line("Johnny", "Wiem. Mamy wspólny interes.")
+	Game.say_line("Johnny", "Cześć, mamo. Abonent dostępny.")
+	Game.say_line("Mama", "Potem się przytulimy. Odrzutowiec Brauna stoi za domem.")
+	Game.say_line("Johnny", "Wiem. Wspólny interes.")
 
 
 # --- boat -------------------------------------------------------------------------
@@ -333,9 +330,9 @@ func board_boat(boat: Node2D, _p: Node) -> void:
 		return
 	if Game.current_map == "trybunal" and not Game.flags.has("braun_done"):
 		if not Game.flags.has("braun_met"):
-			Game.say_line("Johnny", "Łódka na kłódkę. Ciekawe, kto ma kluczyk.")
+			Game.say_line("Johnny", "Łódka na kłódkę. Kto ma kluczyk?", false, true)
 		else:
-			Game.say_line("Johnny", "Łódka Brauna. Kluczyk da mi, jak skończę w Trybunale.")
+			Game.say_line("Johnny", "Łódka Brauna. Kluczyk dostanę po robocie.", false, true)
 		return
 	_busy = true
 	player.frozen = true
@@ -367,18 +364,18 @@ func _on_antenna_disabled(a: Node) -> void:
 	hud.show_big("CISZA", Color("8fe0a0"), 1.2)
 	match a.antenna_id:
 		"a1":
-			Game.say_line("Mama", "Johnny? Słyszę cię wyraźniej! Antena padła.", true)
-			Game.say_line("Mama", "Horda z drogi na wschód się rozchodzi. Na polach mieszka Fast Farmer. On ma kable do następnych anten.", true)
-			Game.say_line("Johnny", "Ten od folii aluminiowej? Już idę.")
+			Game.say_line("Mama", "Słyszę cię lepiej! Horda z drogi odchodzi.", true)
+			Game.say_line("Mama", "Fast Farmer na polach ma kable do anten.", true)
+			Game.say_line("Johnny", "Ten od folii? Idę.")
 		"a2":
-			Game.say_line("Mama", "Druga cicho! Druga horda na drodze odchodzi.", true)
-			Game.say_line("Mama", "Za drogą jest szczelina, a za nią Trybunał CURN. Tam stoi ostatnia antena.", true)
+			Game.say_line("Mama", "Druga cicho! Horda odchodzi.", true)
+			Game.say_line("Mama", "Za drogą szczelina, dalej Trybunał CURN. Ostatnia antena.", true)
 			Game.say_line("Johnny", "Ostatnia. Brzmi dobrze.")
 		"a3":
-			Game.say_line("Mama", "Johnny… słyszę cię czysto. Jak przez telefon. Tylko lepiej.", true)
-			Game.say_line("Mama", "Jestem w domu, po drugiej stronie jeziora. Czekam.", true)
+			Game.say_line("Mama", "Johnny… słyszę cię czysto.", true)
+			Game.say_line("Mama", "Jestem w domu za jeziorem. Czekam.", true)
 			if not Game.flags.has("trybunal_clear"):
-				Game.say_line("Johnny", "Jeszcze tylko mutanci w Trybunale. Braun nie da łódki za pół roboty.")
+				Game.say_line("Johnny", "Jeszcze mutanci. Braun nie da łódki za pół roboty.")
 			else:
 				Game.say_line("Johnny", "Braun ma łódkę. Zaraz będę.")
 
@@ -398,10 +395,10 @@ func _on_player_died() -> void:
 ## Braun's jet: needs silence (all antennas off) and Mama on board.
 func try_board_plane() -> void:
 	if Game.disabled_count < Game.ALL_ANTENNAS.size():
-		Game.say_line("Johnny", "Awionika martwa. Dopóki anteny nadają, nic stąd nie wystartuje.")
+		Game.say_line("Johnny", "Awionika martwa, póki anteny nadają.", false, true)
 		return
 	if not Game.flags.has("mama_met"):
-		Game.say_line("Johnny", "Bez mamy nigdzie nie lecę. Dom jest na górce.")
+		Game.say_line("Johnny", "Bez mamy nie lecę. Dom jest na górce.", false, true)
 		return
 	go_to_ending()
 

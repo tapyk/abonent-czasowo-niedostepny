@@ -53,6 +53,10 @@ func _ready() -> void:
 		var p := AudioStreamPlayer.new()
 		add_child(p)
 		_pool.append(p)
+	for i in 3:
+		var vp := AudioStreamPlayer.new()
+		add_child(vp)
+		_voice_players.append(vp)
 	_setup_static()
 	_setup_hum()
 
@@ -71,12 +75,79 @@ func play(sound: String, pitch_jitter := 0.08, volume_db := 0.0) -> void:
 
 ## Cut every playing one-shot (e.g. when a cutscene is skipped).
 func stop_all() -> void:
-	for p in _pool:
+	for p in _pool + _voice_players:
 		p.stop()
 
 
 func has_sound(sound: String) -> bool:
 	return _streams.has(sound)
+
+
+## Speaking voice, Undertale style: a tiny synthesized tone per typed letter.
+const VOICES := {
+	"Johnny": ["square", 196.0, -17.0],
+	"Mama": ["triangle", 392.0, -13.0],
+	"Farmer": ["saw", 131.0, -19.0],
+	"Braun": ["pulse", 147.0, -19.0],
+	"Tablet": ["sine", 880.0, -16.0],
+	"Radio": ["pulse", 247.0, -18.0],
+}
+const VOICE_LEN := 0.05
+const VOICE_GAP_MS := 40
+
+var _voice_streams := {}
+var _voice_players: Array[AudioStreamPlayer] = []
+var _voice_next := 0
+var _voice_last := 0
+
+
+func voice(speaker: String, radio := false) -> void:
+	if Game.dev.has("mute"):
+		return
+	var now := Time.get_ticks_msec()
+	if now - _voice_last < VOICE_GAP_MS:
+		return
+	_voice_last = now
+	var key := speaker + ("/radio" if radio else "")
+	if not _voice_streams.has(key):
+		_voice_streams[key] = _make_voice(VOICES.get(speaker, ["square", 220.0, -17.0]), radio)
+	var p := _voice_players[_voice_next]
+	_voice_next = (_voice_next + 1) % _voice_players.size()
+	p.stream = _voice_streams[key]
+	p.volume_db = VOICES.get(speaker, [0, 0, -17.0])[2]
+	p.pitch_scale = randf_range(0.94, 1.06)
+	p.play()
+
+
+func _make_voice(v: Array, radio: bool) -> AudioStreamWAV:
+	var n := int(MIX_RATE * VOICE_LEN)
+	var data := PackedByteArray()
+	data.resize(n * 2)
+	var freq: float = v[1]
+	var rng := RandomNumberGenerator.new()
+	rng.seed = hash(v[0]) + int(freq)
+	var lp := 0.0
+	for i in n:
+		var t := i / MIX_RATE
+		var ph := fmod(t * freq, 1.0)
+		var s := 0.0
+		match v[0]:
+			"square": s = 1.0 if ph < 0.5 else -1.0
+			"pulse": s = 1.0 if ph < 0.25 else -1.0
+			"triangle": s = 4.0 * absf(ph - 0.5) - 1.0
+			"saw": s = 2.0 * ph - 1.0
+			_: s = sin(ph * TAU)
+		if radio:
+			lp = lerpf(lp, rng.randf_range(-1.0, 1.0), 0.5)
+			s = s * 0.75 + lp * 0.35
+		var env := minf(t / 0.003, 1.0) * (1.0 - float(i) / n)
+		data.encode_s16(i * 2, int(clampf(s * env * 0.6, -1.0, 1.0) * 32767.0))
+	var w := AudioStreamWAV.new()
+	w.format = AudioStreamWAV.FORMAT_16_BITS
+	w.mix_rate = int(MIX_RATE)
+	w.stereo = false
+	w.data = data
+	return w
 
 
 ## 0..1 — volume of the radio static hiss.

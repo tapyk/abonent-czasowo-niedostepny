@@ -5,6 +5,8 @@ const W := 320.0
 const H := 180.0
 const CURN := Vector2(236, 118)       # CURN complex on the horizon
 const RADIO_CPS := 15.0       # typing speed of the radio lines
+const RADIO_LINES := [[0.4, "[RADIO] …komunikat specjalny…"], [3.0, "…awaria w ośrodku badawczym CURN…"],
+	[5.8, "…luki w zabezpieczeniach… sygnał…"], [8.6, "…prosimy nie zbliżać się do…"]]
 const T_CITY := 12.0          # radio lines end, the window view starts
 const T_FLASH := 15.0
 const T_PHONE := 25.0
@@ -23,6 +25,7 @@ var _antennas: Array = []             # [pos, lit_time]
 var _people: Array = []               # [x, speed, mutate_time]
 var _stars: Array = []
 var _shake := 0.0
+var _typed := [0, 0, 0, 0]            # letters already voiced per radio line
 
 
 func _ready() -> void:
@@ -64,6 +67,8 @@ func _process(delta: float) -> void:
 			p[2] = _t
 			Sfx.play("growl", 0.2, -14.0)
 		p[0] = wrapf(p[0] + p[1] * delta * (0.4 if p[2] > 0.0 else 1.0), -10.0, W + 10.0)
+	if _t < T_CITY:
+		_voice_radio()
 	if _t >= T_RING and not _rang:
 		_rang = true
 		Sfx.set_static(0.08)
@@ -78,6 +83,17 @@ func _process(delta: float) -> void:
 	elif _t >= T_END:
 		_finish()
 	queue_redraw()
+
+
+## Announcer's voice blip for each newly typed letter of the radio lines.
+func _voice_radio() -> void:
+	for i in RADIO_LINES.size():
+		var text: String = RADIO_LINES[i][1]
+		var n := clampi(int((_t - RADIO_LINES[i][0]) * RADIO_CPS), 0, text.length())
+		if n > _typed[i]:
+			_typed[i] = n
+			if text[n - 1] not in " .,!?…[]":
+				Sfx.voice("Radio", true)
 
 
 func _finish() -> void:
@@ -119,10 +135,8 @@ func _draw() -> void:
 
 func _draw_radio(f: Font, fs: int) -> void:
 	draw_rect(Rect2(0, 0, W, H), Color.BLACK)
-	var lines := [[0.4, "[RADIO] …komunikat specjalny…"], [3.0, "…awaria w ośrodku badawczym CURN…"],
-		[5.8, "…luki w zabezpieczeniach… sygnał…"], [8.6, "…prosimy nie zbliżać się do…"]]
 	var y := 70.0
-	for l in lines:
+	for l in RADIO_LINES:
 		if _t > l[0]:
 			var n := int((_t - l[0]) * RADIO_CPS)
 			var s: String = l[1].substr(0, n)

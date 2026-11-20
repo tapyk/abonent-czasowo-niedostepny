@@ -67,9 +67,9 @@ func prompt() -> String:
 func interact(player: Node) -> void:
 	if not Game.has(need):
 		if need == "cable":
-			Game.say_line("Johnny", "Bez kabla się nie podłączę. Technik obok coś miał.")
+			Game.say_line("Johnny", "Bez kabla się nie podłączę. Technik obok coś miał.", false, true)
 		else:
-			Game.say_line("Johnny", "Inne złącze niż na bloku. Bez kabli od Fast Farmera nic tu nie zrobię.")
+			Game.say_line("Johnny", "Inne złącze. Potrzebuję kabli od Fast Farmera.", false, true)
 		return
 	get_tree().call_group("hack_ui", "open", self, player)
 
