@@ -4,18 +4,52 @@ class_name CharacterArt
 static var _cache := {}
 
 
+const CH := "res://assets/sprites/characters/"
+const EN := "res://assets/sprites/enemies/"
+
+
 static func player_frames() -> SpriteFrames:
 	if not _cache.has("player"):
-		_cache["player"] = _placeholder(Color("c9a640"), Color("e0b48a"), Color("3a3a48"))
+		var sf := _from_sheet(CH + "player_johnny.png", 8.0)
+		_cache["player"] = sf if sf else _placeholder(Color("c9a640"), Color("e0b48a"), Color("3a3a48"))
 	return _cache["player"]
 
 
 static func enemy_frames(burnt: bool) -> SpriteFrames:
 	var key := "enemy_burnt" if burnt else "enemy"
 	if not _cache.has(key):
-		_cache[key] = _placeholder(Color("5a2a1a"), Color("ff7a2a"), Color("2a1a14")) if burnt \
-			else _placeholder(Color("4f6b3a"), Color("9fb08a"), Color("2f3a28"))
+		var sf := _from_sheet(EN + ("mutant_b.png" if burnt else "mutant_a.png"), 5.0, Color(1.0, 0.6, 0.35) if burnt else Color.WHITE)
+		if sf == null:
+			sf = _placeholder(Color("5a2a1a"), Color("ff7a2a"), Color("2a1a14")) if burnt \
+				else _placeholder(Color("4f6b3a"), Color("9fb08a"), Color("2f3a28"))
+		_cache[key] = sf
 	return _cache[key]
+
+
+## Kenney RPG Urban character sheet: 3x4 frames of 16x16; rows down/left/right/up.
+static func _from_sheet(path: String, fps: float, tint := Color.WHITE) -> SpriteFrames:
+	if Art.tex(path) == null:
+		return null
+	var sf := SpriteFrames.new()
+	sf.remove_animation("default")
+	var rows := {"down": 0, "left": 1, "right": 2, "up": 3}
+	for d in rows:
+		var fr := func(col: int) -> Texture2D: return Art.scaled(path, 1.0, Rect2i(col * 16, rows[d] * 16, 16, 16), tint)
+		for kind in ["idle", "walk", "attack", "hurt", "die"]:
+			var a: String = kind + "_" + d
+			sf.add_animation(a)
+			sf.set_animation_speed(a, fps)
+			sf.set_animation_loop(a, kind in ["idle", "walk"])
+			if kind == "walk":
+				for c in [1, 0, 2, 0]:
+					sf.add_frame(a, fr.call(c))
+			elif kind == "die":
+				var img: Image = fr.call(0).get_image()
+				img.rotate_90(CLOCKWISE)
+				sf.add_frame(a, ImageTexture.create_from_image(img))
+			else:
+				sf.add_frame(a, fr.call(0))
+	return sf
 
 
 ## Best animation for kind + facing direction.
@@ -51,6 +85,9 @@ static func muzzle_flash() -> Texture2D:
 
 
 static func corpse() -> Texture2D:
+	var t := Art.tex(CH + "npc_technician_dead.png")
+	if t:
+		return t
 	var img := Image.create_empty(20, 10, false, Image.FORMAT_RGBA8)
 	img.fill_rect(Rect2i(0, 3, 6, 5), Color("e0b48a"))
 	img.fill_rect(Rect2i(6, 2, 10, 7), Color("d05a20"))

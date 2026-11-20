@@ -12,14 +12,14 @@ motion_mode = 1
 script = ExtResource("1_player")
 
 [node name="Sprite" type="AnimatedSprite2D" parent="."]
-position = Vector2(0, -12)
+position = Vector2(0, -8)
 
 [node name="Shape" type="CollisionShape2D" parent="."]
 position = Vector2(0, -3)
 shape = SubResource("RectangleShape2D_feet")
 
 [node name="Facing" type="Node2D" parent="."]
-position = Vector2(0, -9)
+position = Vector2(0, -6)
 
 [node name="Muzzle" type="Marker2D" parent="Facing"]
 position = Vector2(8, 0)

@@ -5,21 +5,24 @@ Every asset in this folder is **CC0 1.0 (public domain)** or an equivalent permi
 A courtesy credit line is still suggested below; the end credits can reuse it.
 
 Original license files (or, where an archive had none, a quote of the asset page) are in `licenses/`.
-All sources were downloaded on 2026-11-20.
+All sources were downloaded on 2026-11-20. The top-down re-sourcing (Kenney city/urban/RPG/indoors, josehzz crops, CC0 tool icons) happened the same day, and the side-view platformer art was removed.
 
 ## Suggested credits line (optional)
 
-> Art: Luis Zuno (ansimuz), Soluna Software, Nmn, Kenney. Sound: Kenney, kurt, artisticdude, Nocturnal_Vanguard. Fonts: GGBotNet.
+> Art: Kenney, Luis Zuno (ansimuz), josehzz, Nmn, AntumDeluge / Openclipart. Sound: Kenney, kurt, artisticdude, Nocturnal_Vanguard. Fonts: GGBotNet.
 
 ## Table
 
 | File(s) | Pack | Author | Source URL | License | Attribution text |
 |---|---|---|---|---|---|
-| `sprites/characters/player_*.png`, `sprites/tiles/tiles_warped_city.png`, `sprites/props/prop_antenna.png`, `prop_control_box_1..3.png`, `prop_car_police.png`, `prop_car_red.png`, `prop_door_shutter.png`, `prop_door_window.png`, `prop_lamp_post.png`, `prop_ac_unit.png`, `prop_ladder.png` (the last five are cut from the tileset), `sprites/backgrounds/bg_sky_night.png`, `bg_city_far.png`, `bg_city_near.png`, `sprites/fx/fx_bullet_hit_strip.png`, `fx_energy_shot_strip.png` | Warped City | Luis Zuno (@ansimuz) | https://opengameart.org/content/warped-city | CC0 (page). Archive file: "Public domain and free to use on whatever you want, personal or commercial. Credit is not required" | None required. Optional: "Warped City art by Luis Zuno (@ansimuz)" |
-| `sprites/tiles/tiles_warped_city_2.png`, `sprites/backgrounds/bg_city_glow_red.png`, `bg_blocks_mid.png`, `sprites/fx/fx_bullet_strip.png`, `fx_explosion_strip.png` | Warped City 2 | Luis Zuno (@ansimuz) | https://opengameart.org/content/warped-city-2 | CC0 (page). Archive file: "use … in personal or commercial projects … modify … re-distribute … Credit no required" | None required. Optional: "Warped City 2 art by Luis Zuno (@ansimuz)" |
-| `sprites/props/prop_crate.png`, `prop_crate_stack.png`, `prop_barrel.png` | Gothicvania Town | Luis Zuno (@ansimuz) | https://opengameart.org/content/gothicvania-town | CC0 (page). Archive file: "Public domain and free to use…" | None required |
-| `sprites/props/prop_bush_large.png`, `prop_bush_small.png` | SunnyLand Tall Forest Environment | Luis Zuno (@ansimuz) | https://opengameart.org/content/sunnyland-tall-forest-environment | CC0 (page). Archive file: "use … personal or commercial … modify … re-distribute … Credit no required" | None required |
-| `sprites/enemies/zombie_*.png` | Zombie Character Pack | Soluna Software | https://opengameart.org/content/zombie-character-pack | CC0 | None required. Optional: "Zombie sprites by Soluna Software" |
+| `sprites/props/prop_antenna.png`, `prop_control_box_1..3.png`, `sprites/fx/fx_bullet_hit_strip.png`, `fx_energy_shot_strip.png` | Warped City | Luis Zuno (@ansimuz) | https://opengameart.org/content/warped-city | CC0 (page). Archive file: "Public domain and free to use on whatever you want, personal or commercial. Credit is not required" | None required. Optional: "Warped City art by Luis Zuno (@ansimuz)" |
+| `sprites/tiles/city_tiles.png`, `sprites/props/car_*.png`, `electric_cabinet.png`, `control_panel_keypad.png`, `rubble_large.png`, `rubble_small.png`, `tires_pile.png`, `crate_cardboard.png`, `barrel_orange.png`, `traffic_cone.png` | Roguelike Modern City (2.0) | Kenney | https://kenney.nl/assets/roguelike-modern-city | CC0 | None required. Optional: "Kenney (www.kenney.nl)" |
+| `sprites/tiles/urban_tiles.png`, `sprites/characters/*.png`, `sprites/enemies/mutant_a.png`, `mutant_b.png` (palette-swapped from the characters), `sprites/props/thicket_green.png`, `thicket_autumn.png`, `electric_meter_box.png`, `crate_wooden.png`, `trash_bag.png`, `road_barrier.png` | RPG Urban Pack (1.0) | Kenney | https://kenney.nl/assets/rpg-urban-pack | CC0 | None required |
+| `sprites/tiles/rpg_tiles.png` (repacked without spacing), `sprites/props/tree_dead.png`, `tree_dead_small.png` | Roguelike RPG Pack | Kenney | https://kenney.nl/assets/roguelike-rpg-pack | CC0 | None required |
+| `sprites/tiles/indoor_tiles.png` (repacked without spacing) | Roguelike Indoors | Kenney | https://kenney.nl/assets/roguelike-indoors | CC0 | None required |
+| `sprites/tiles/farm_crops.png` | Farming crops 16x16 | josehzz | https://opengameart.org/content/farming-crops-16x16 | CC0 | None required. Author asks (optionally) for a credit link to https://opengameart.org/users/josehzz |
+| `sprites/items/item_shears.png`, `item_wire_cutters.png`, `item_cable.png`, `item_sickle.png` | CC0 Tool Icons (collection by AntumDeluge; originals from Openclipart, Fleurman, Wikimedia Commons/PSF) | AntumDeluge (compiler) | https://opengameart.org/content/cc0-tool-icons | CC0 | None required |
+| `sprites/fx/fx_bullet_strip.png`, `fx_explosion_strip.png` | Warped City 2 | Luis Zuno (@ansimuz) | https://opengameart.org/content/warped-city-2 | CC0 (page). Archive file: "use … in personal or commercial projects … modify … re-distribute … Credit no required" | None required |
 | `sprites/items/item_ammo_box_9mm.png`, `item_ammo_box.png`, `item_ammo_clip.png`, `item_medkit.png`, `item_medkit_orange.png`, `item_battery.png` | Items - armor, health, ammo | Nmn | https://opengameart.org/content/items-armor-health-ammo | CC0 | None required |
 | `sprites/items/item_gear.png`, `item_heart.png`, `sprites/ui/*.png` | 1-Bit Pack | Kenney | https://kenney.nl/assets/1-bit-pack | CC0 | None required. Optional: "Kenney (www.kenney.nl)" |
 | `sprites/props/airplane_topdown.png`, `airplane_topdown_bomber.png`, `sprites/fx/fx_muzzle_flash_strip.png` | Pixel Shmup | Kenney | https://kenney.nl/assets/pixel-shmup | CC0 | None required |
@@ -38,12 +41,12 @@ All sources were downloaded on 2026-11-20.
 
 For every pack I read the license on the asset page (Kenney's "License" row, or OpenGameArt's "License(s)" box) and any license file inside the downloaded archive. The two had to agree.
 
-- **Warped City** (OGA): the page says CC0. `warped city files/public-license.txt` grants public domain use, with credit not required. Agrees. The bundled **music** carries a separate credit-required notice. No music was copied.
-- **Warped City 2** (OGA): the page says CC0. `public-license.txt` allows personal and commercial use, modification and redistribution, with credit not required. Agrees. Music was not copied.
-- **Gothicvania Town** (OGA): the page says CC0. `public-license.txt` says "Public domain". Agrees. Music was not copied.
-- **SunnyLand Tall Forest** (OGA): the page says CC0. `public-license.txt` has the same permissive text as Warped City 2. Agrees.
-- **Zombie Character Pack** (OGA): the page says CC0. The zip contains no license file. The page license was quoted into `licenses/oga_soluna_zombie_character_pack_License.txt`.
+- **Warped City** (OGA; now only the antenna, the control boxes and two fx strips): the page says CC0. `warped city files/public-license.txt` grants public domain use, with credit not required. Agrees. The bundled **music** carries a separate credit-required notice. No music was copied.
+- **Warped City 2** (OGA; now only two fx strips): the page says CC0. `public-license.txt` allows personal and commercial use, modification and redistribution, with credit not required. Agrees. Music was not copied.
 - **Items - armor, health, ammo** (OGA): the page says CC0. It is a single PNG with no archive. The page was quoted into the licenses folder. The cyan background was keyed to transparent and the items were cropped.
+- **Kenney Roguelike Modern City, RPG Urban Pack, Roguelike RPG Pack, Roguelike Indoors** (top-down set): each kenney.nl page links "Creative Commons CC0". Each archive's `License.txt` says "License: (Creative Commons Zero, CC0)". Agrees. Copies are in `licenses/kenney_roguelike_modern_city_License.txt`, `kenney_rpg_urban_pack_License.txt`, `kenney_roguelike_rpg_pack_License.txt`, `kenney_roguelike_indoors_License.txt`. The derived files (re-laid-out character sheets, palette-swapped mutants, rotated dead technician, cropped props, sheets repacked without spacing) are modifications that CC0 permits.
+- **Farming crops 16x16 (josehzz)** (OGA): the page says CC0. `README.txt` in the zip says "License (CC0)" and "Credit … would be appreciated, but this is not requiered". Agrees. Copied to `licenses/oga_josehzz_farming_crops_16x16_License.txt`.
+- **CC0 Tool Icons (AntumDeluge)** (OGA): the page says CC0, and its "Licensing" section says "Creative Commons Zero (CC0)". The zips hold only source lists: Openclipart (public domain), Fleurman's rope from https://opengameart.org/node/77730 (page checked: CC0), and the Wikimedia "Sickle (PSF)" (Pearson Scott Foresman, public domain). There is no conflicting license file. Summary in `licenses/oga_antumdeluge_cc0_tool_icons_License.txt`. Icons from the 7Soul1 subset (DeviantArt sources, license chain not verifiable) were **not** used.
 - **Kenney packs** (1-Bit Pack, Pixel Shmup, Impact Sounds, Interface Sounds, Digital Audio, RPG Audio, Sci-fi Sounds): each kenney.nl page says "Creative Commons CC0". Each archive's `License.txt` says CC0. Agrees. They were downloaded through kenney.nl's own "Continue without donating" link.
 - **Gunshots (kurt)** (OGA): the page says CC0. The files are bare WAVs with no license file, so the page was quoted.
 - **Zombies Sound Pack / Swishes Sound Pack (artisticdude)** (OGA): both pages say CC0. Neither zip has a license file, so the pages were quoted. The files were converted from 24-bit to 16-bit WAV.
@@ -58,3 +61,18 @@ For every pack I read the license on the asset page (Kenney's "License" row, or 
 - **Michel Baradari gunshots/clicks** (CC-BY 3.0) and **Side-Scroller Actor Pack** (CC-BY-SA): CC0 alternatives existed. Not used.
 - **Dark Sci-Fi Monsters** (CC-BY-SA), **Violet Industrial tiles** (CC-BY-SA), **Female Gruntwork** (CC-BY-SA): CC0 alternatives existed.
 - **Apartment Bloc Tileset** (CC-BY 3.0): this is a good thematic fit (Soviet-style blocks) but has a bright daytime palette and 8 px tiles. Not used, to keep the set consistent. It is an option if CC-BY attribution is acceptable.
+
+### Rejected or not used in the top-down re-sourcing (2026-11-20)
+
+- **Zelda-like tilesets and sprites** (ArMM1998, OGA, CC0; the zip has no license file): the license is fine, but the set is medieval/fantasy (castles, wooden houses) with no urban pieces. It would clash with the Kenney city set, so it is not used. It is a fallback if a Minish-Cap look is ever preferred (it has a 4-direction player with sword frames).
+- **Kenney Tiny Town** (CC0, page and License.txt agree): medieval village style with chunkier outlines and no characters. Not used.
+- **Kenney Roguelike Characters** (CC0): paper-doll parts in a single front-facing pose, with no walk cycle. Not used.
+- **Top Down Animated Zombie Set** (rileygombart): **OGA-BY 3.0**, and the overhead hi-res view does not match 3/4 16 px. Rejected.
+- **Animated Top Down Zombie** (rileygombart, CC0): a high-resolution Spine render seen straight from above. A style mismatch, not used.
+- **CharlesGabriel top-down zombie** (16x18): **CC-BY 3.0**. Not needed; the CC0 palette-swapped mutants are used instead.
+- **Zombie Sprites** (Clint Bellanger): **CC-BY 3.0** and 128 px 3D renders. Rejected.
+- **walking zombie sheet** (clayster2012): **OGA-BY 3.0**. Rejected.
+- **Wheatfields Tileset** (CC0) and **Simple Farm Tiles** (CC0): the licenses are fine, but the palettes and styles differ strongly from Kenney. The josehzz crop overlays are used on Kenney dirt instead.
+- **Pixel Art Mechanic's Tool Set** (devilsworkshop): **CC-BY 4.0**. CC0 tool icons existed. Rejected.
+- **LPC** characters/tiles: CC-BY-SA/GPL. Avoided as instructed.
+- No CC0 3/4-view LTE tower was found in the Kenney style. The existing Warped City `prop_antenna.png` (CC0) is kept, along with the city wooden utility poles and the metal mast in `city_tiles.png`.

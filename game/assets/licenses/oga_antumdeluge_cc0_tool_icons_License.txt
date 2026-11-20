@@ -1,0 +1,12 @@
+CC0 Tool Icons - compiled by AntumDeluge
+Source: https://opengameart.org/content/cc0-tool-icons  (downloaded 2026-11-20)
+License shown on the asset page: CC0 (Creative Commons Zero 1.0)
+Page text, "Licensing" section: "Creative Commons Zero (CC0)". The description says the images
+"have been taken from different CC0 sources with little or no editing".
+The zips contain only source lists, no separate license file:
+  tool-OCAL.txt: scissors_01 -> https://openclipart.org/detail/449 ; wiresnips -> https://openclipart.org/detail/216787
+                 (Openclipart content is public domain)
+  tool-Fleurman.txt: rope -> https://opengameart.org/node/77730 ("Almost Weapons Icons", page license: CC0)
+  tool-Wikimedia.txt: sickle -> https://commons.wikimedia.org/wiki/File:Sickle_(PSF).png (Pearson Scott Foresman, public domain)
+Files used: sprites/items/item_shears.png (scissors_01), item_wire_cutters.png (wiresnips_blue),
+            item_cable.png (Fleurman rope_01), item_sickle.png (sickle)

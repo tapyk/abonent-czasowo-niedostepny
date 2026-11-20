@@ -13,11 +13,11 @@ static func bullet() -> Texture2D:
 
 
 static func bush() -> Texture2D:
-	return Art.box(Vector2i(16, 14), Color("2f5a26"), Color("1f3a19"))
+	return _or(Art.scaled(P + "tiles/city_tiles.png", 1.0, Rect2i(33 * 16, 13 * 16, 16, 16)), Art.box(Vector2i(16, 14), Color("2f5a26")))
 
 
 static func thicket() -> Texture2D:
-	return Art.box(Vector2i(16, 16), Color("1d3a18"), Color("4a7a30"))
+	return _or(Art.scaled(P + "tiles/urban_tiles.png", 1.0, Rect2i(19 * 16, 9 * 16, 16, 16)), Art.box(Vector2i(16, 16), Color("1d3a18")))
 
 
 static func antenna_mast() -> Texture2D:
@@ -33,7 +33,8 @@ static func plane() -> Texture2D:
 
 
 static func decor(_kind: String) -> Texture2D:
-	return Art.box(Vector2i(28, 16), Color("5a3b2e"), Color("2e1f18"))
+	var f: String = ["car_gray_side_right.png", "car_green_side_left.png", "car_gray_side_left.png"].pick_random()
+	return _or(Art.scaled(P + "props/" + f, 1.0, Rect2i(), Color(0.6, 0.55, 0.55)), Art.box(Vector2i(28, 16), Color("5a3b2e")))
 
 
 static func pickup(kind: String) -> Texture2D:
@@ -49,7 +50,7 @@ static func pickup(kind: String) -> Texture2D:
 		"pistol":
 			return _or(Art.scaled(P + "ui/ui_pistol.png", 0.75), Art.box(Vector2i(8, 5), Color("555a60")))
 		"sekator":
-			return Art.box(Vector2i(8, 8), Color("c04040"), Color("c0c8d0"))
+			return _or(Art.scaled(P + "items/item_shears.png", 0.5), Art.box(Vector2i(8, 8), Color("c04040")))
 		"cable":
 			return CharacterArt.corpse()
 	return Art.box(Vector2i(6, 6), Color.MAGENTA)

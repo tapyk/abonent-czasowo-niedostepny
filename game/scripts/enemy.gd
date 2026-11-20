@@ -52,7 +52,7 @@ func _ready() -> void:
 	_mark.add_theme_font_size_override("font_size", Art.FONT_SIZE)
 	_mark.add_theme_color_override("font_color", Color("ff4a3a"))
 	_mark.material = Art.unshaded()
-	_mark.position = Vector2(-2, -34)
+	_mark.position = Vector2(-2, -28)
 	_mark.visible = false
 	add_child(_mark)
 	_wander_t = randf_range(0.5, 2.0)
