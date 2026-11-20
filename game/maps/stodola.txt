@@ -1,0 +1,12 @@
+name=stodola
+dark=0.6,0.55,0.45
+0=warp:world:67:10
+1=npc:farmer
+---
+wwwwwwwwwwwwww
+wwwwwwwwwwwwww
+wtooooooooookw
+woooo1oooooovw
+woooooooooaoow
+wooooooooooomw
+wwwwww0wwwwwww

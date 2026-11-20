@@ -32,6 +32,7 @@ var _mark: Label
 
 func _ready() -> void:
 	add_to_group("enemies")
+	collision_mask = 1 | 32  # walls + water / chasm
 	home = global_position
 	var diff := 1.0 + 0.15 * Game.disabled_count
 	if burnt:

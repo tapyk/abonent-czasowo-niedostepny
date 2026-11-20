@@ -1,5 +1,5 @@
 extends Node2D
-## Braun's plane at the small airfield. Grounded while the signal jams the avionics.
+## Braun's jet on the strip by Mama's house.
 
 func _ready() -> void:
 	add_to_group("interactable")
@@ -25,7 +25,4 @@ func prompt() -> String:
 
 
 func interact(_player: Node) -> void:
-	if Game.disabled_count == 0:
-		Game.say_line("Johnny", "Awionika martwa. Dopóki antena nadaje, nic stąd nie wystartuje.")
-		return
-	get_tree().call_group("story", "go_to_ending")
+	get_tree().call_group("story", "try_board_plane")

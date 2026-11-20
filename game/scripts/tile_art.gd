@@ -28,10 +28,19 @@ const MAP := {
 	"iwall": [G, Vector2i(25, 15)], "iwall_face": [G, Vector2i(25, 16)],
 	"kitchen": [I, Vector2i(2, 13)], "bed": [I, Vector2i(9, 6)], "table": [I, Vector2i(1, 0)],
 	"plant": [C, Vector2i(33, 13)], "stairs": [G, Vector2i(22, 18)],
+	"sand": [C, Vector2i(6, 24)], "plaza": [C, Vector2i(7, 20)],
+	"pier": [G, Vector2i(5, 2)],
+	"plantation": [C, Vector2i(5, 24), F, Vector2i(7, 7)],
+	"rock": [C, Vector2i(4, 24), C, Vector2i(12, 13)],
 }
+
+## Keys drawn in code even when sheets exist (no fitting asset tile).
+const DRAWN := ["palm", "chasm", "chasm_top", "chasm_l", "chasm_r", "water", "water_top"]
 
 
 static func get_tile(key: String) -> Texture2D:
+	if key in DRAWN:
+		return null
 	var e: Array = MAP.get(key, MAP.get(key.split("_")[0], []))
 	if e.is_empty():
 		return null
@@ -106,4 +115,59 @@ static func placeholder(key: String) -> Image:
 		"stairs":
 			img.fill(Color("5a5a5a"))
 			for y in range(0, 16, 4): img.fill_rect(Rect2i(0, y, 16, 2), Color("8a8a8a"))
+		"sand":
+			img.fill(Color("c9b27a"))
+		"plaza":
+			img.fill(Color("8a8c90")); img.fill_rect(Rect2i(0, 15, 16, 1), Color("6a6c70")); img.fill_rect(Rect2i(15, 0, 1, 16), Color("6a6c70"))
+		"pier":
+			img.fill(Color("6a4a2a"))
+			for y in range(0, 16, 4): img.fill_rect(Rect2i(0, y, 16, 1), Color("4a3018"))
+		"plantation":
+			img.fill(Color("5a4a2a")); img.fill_rect(Rect2i(3, 3, 10, 10), Color("3a7a32"))
+		"rock":
+			img.fill(Color("6b5a3e")); img.fill_rect(Rect2i(2, 4, 12, 10), Color("6a6a70")); img.fill_rect(Rect2i(4, 4, 6, 3), Color("8a8a90"))
+		"water":
+			_water(img, rng, key == "water_top")
+		"chasm":
+			img.fill(Color("07070a"))
+			for i in 5:
+				img.set_pixel(rng.randi_range(0, 15), rng.randi_range(4, 15), Color("15151c"))
+			if key == "chasm_top":
+				img.fill_rect(Rect2i(0, 0, 16, 3), Color("4a3a2a")); img.fill_rect(Rect2i(0, 3, 16, 2), Color("2a2018"))
+			elif key == "chasm_l":
+				img.fill_rect(Rect2i(0, 0, 3, 16), Color("5a4630")); img.fill_rect(Rect2i(3, 0, 3, 16), Color("2a2018"))
+				for yy in range(1, 16, 5): img.fill_rect(Rect2i(3, yy, 2, 2), Color("4a3a2a"))
+			elif key == "chasm_r":
+				img.fill_rect(Rect2i(13, 0, 3, 16), Color("5a4630")); img.fill_rect(Rect2i(10, 0, 3, 16), Color("2a2018"))
+				for yy in range(3, 16, 5): img.fill_rect(Rect2i(11, yy, 2, 2), Color("4a3a2a"))
+		"palm":
+			_palm(img)
 	return img
+
+
+static func _water(img: Image, rng: RandomNumberGenerator, top: bool) -> void:
+	img.fill(Color("1d3d5a"))
+	for i in 4:
+		var x := rng.randi_range(0, 11)
+		var y := rng.randi_range(2, 14)
+		img.fill_rect(Rect2i(x, y, 4, 1), Color("2e5a7e"))
+	if top:
+		img.fill_rect(Rect2i(0, 0, 16, 2), Color("c9b27a")); img.fill_rect(Rect2i(0, 2, 16, 1), Color("8fb0c8"))
+
+
+## Palm on sand: curved trunk + fronds (no palm in the Kenney sheets).
+static func _palm(img: Image) -> void:
+	var trunk := Color("7a5a32")
+	for y in range(5, 16):
+		var x := 7 + int((15 - y) / 6.0)
+		img.fill_rect(Rect2i(x, y, 2, 1), trunk if y % 2 == 0 else trunk.darkened(0.25))
+	var leaf := Color("2f7a2a")
+	var dark := Color("1f5a1c")
+	for d in [Vector2i(-1, 0), Vector2i(1, 0), Vector2i(-1, 1), Vector2i(1, 1), Vector2i(0, -1)]:
+		for i in 6:
+			var p: Vector2i = Vector2i(8, 4) + d * i + Vector2i(0, int(i / 3.0) if d.y == 0 else 0)
+			if p.x >= 0 and p.x < 16 and p.y >= 0 and p.y < 16:
+				img.set_pixel(p.x, p.y, leaf if i < 4 else dark)
+				if p.y + 1 < 16:
+					img.set_pixel(p.x, p.y + 1, dark)
+	img.fill_rect(Rect2i(7, 3, 3, 3), Color("4a8a32"))

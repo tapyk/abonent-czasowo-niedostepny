@@ -1,0 +1,12 @@
+name=mama_dom
+dark=0.7,0.6,0.5
+0=warp:mama:21:9
+1=npc:mama
+---
+wwwwwwwwwwwwwwww
+wwwwwwwwwwwwwwww
+wkkoooooooeewovw
+wooooo1ooooooovw
+wooootooooooooow
+woooooooooooooow
+wwwwwww0wwwwwwww

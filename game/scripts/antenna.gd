@@ -3,6 +3,8 @@ extends Node2D
 
 @export var antenna_id := "a1"
 @export var hackable := false
+@export var minigame := "maze"
+@export var need := "cable"
 
 var disabled := false
 var maze_seed := 1
@@ -59,12 +61,15 @@ func can_interact() -> bool:
 
 
 func prompt() -> String:
-	return "[E] Hakuj panel anteny" if Game.has_cable else "[E] Panel anteny (brak kabla)"
+	return "[E] Hakuj panel anteny" if Game.has(need) else "[E] Panel anteny (brak kabla)"
 
 
 func interact(player: Node) -> void:
-	if not Game.has_cable:
-		Game.say_line("Johnny", "Bez kabla się nie podłączę. Technik obok coś miał.")
+	if not Game.has(need):
+		if need == "cable":
+			Game.say_line("Johnny", "Bez kabla się nie podłączę. Technik obok coś miał.")
+		else:
+			Game.say_line("Johnny", "Inne złącze niż na bloku. Bez kabli od Fast Farmera nic tu nie zrobię.")
 		return
 	get_tree().call_group("hack_ui", "open", self, player)
 

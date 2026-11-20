@@ -1,7 +1,10 @@
 extends StaticBody2D
-## A pack of mutants standing on the road east.
+## A pack of mutants standing on a road.
 
 const COUNT := 3
+
+## The antenna this pack listens to (level.gd doesn't spawn it once that one is off).
+var antenna_id := "a1"
 
 
 func _ready() -> void:

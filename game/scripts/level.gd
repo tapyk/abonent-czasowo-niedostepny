@@ -13,13 +13,22 @@ const WARP := preload("res://scripts/warp.gd")
 const DECOR := preload("res://scripts/decor.gd")
 const THICKET := preload("res://scripts/thicket.gd")
 const HORDE := preload("res://scripts/horde.gd")
+const NPC := preload("res://scripts/npc.gd")
+const ZIPLINE := preload("res://scripts/zipline.gd")
+const BOAT := preload("res://scripts/boat.gd")
 
 const GROUND := {".": "grass", ",": "grass2", ":": "dirt", "=": "road", "_": "sidewalk",
-	"f": "field", "r": "runway", "o": "floor"}
+	"f": "field", "r": "runway", "o": "floor", "d": "sand", "j": "pier", "g": "plaza",
+	"n": "plantation"}
 const SOLID := {"#": "wall", "R": "roof", "T": "tree", "F": "fence", "w": "iwall",
-	"k": "kitchen", "e": "bed", "t": "table", "v": "plant", "|": "garage"}
+	"k": "kitchen", "e": "bed", "t": "table", "v": "plant", "|": "garage", "y": "palm", "x": "rock"}
+## Low obstacles: stop walkers (physics layer 6, value 32) but not bullets or sight.
+const LOW := {"~": "water", "^": "chasm"}
 ## Keys that get a collision box.
-const COLLIDE := ["wall", "roof", "tree", "fence", "iwall", "kitchen", "bed", "table", "plant", "garage"]
+const COLLIDE := ["wall", "roof", "tree", "fence", "iwall", "kitchen", "bed", "table", "plant", "garage",
+	"palm", "rock"]
+const COLLIDE_LOW := ["water", "chasm"]
+const LOW_LAYER := 32
 
 var map_name := ""
 var rows: PackedStringArray
@@ -50,6 +59,8 @@ func build(name: String) -> void:
 			var ch := cell(x, y)
 			if GROUND.has(ch):
 				_add("ground", x, y, GROUND[ch])
+			elif LOW.has(ch):
+				_add("ground", x, y, _low_variant(ch, x, y))
 			elif SOLID.has(ch):
 				_add("ground", x, y, _ground_under(x, y))
 				_add("walls", x, y, _solid_variant(ch, x, y))
@@ -68,7 +79,7 @@ func build(name: String) -> void:
 				spawns.append([ch, x, y])
 
 	var ts := _make_tileset()
-	ground = _layer("Ground", ts, false, -10)
+	ground = _layer("Ground", ts, true, -10)  # water / chasm collide
 	walls = _layer("Walls", ts, true, -9)
 	above = _layer("Above", ts, false, 20)
 	entities = Node2D.new()
@@ -139,6 +150,8 @@ func _warp_def(ch: String) -> Dictionary:
 	if p[0] != "warp":
 		return {}
 	var d := {"map": p[1], "cell": Vector2i(int(p[2]), int(p[3])), "need": ""}
+	if p[1] == "":
+		return {}
 	if p.size() > 4 and p[4].begins_with("need="):
 		d["need"] = p[4].trim_prefix("need=")
 	return d
@@ -159,6 +172,17 @@ func _ground_under(x: int, y: int) -> String:
 		if GROUND.has(n):
 			return GROUND[n]
 	return _default_ground()
+
+
+## Water/chasm edges: a lighter rim where they touch land above.
+func _low_variant(ch: String, x: int, y: int) -> String:
+	if not LOW.has(cell(x, y - 1)) and cell(x, y - 1) != "":
+		return LOW[ch] + "_top"
+	if ch == "^" and not LOW.has(cell(x - 1, y)) and cell(x - 1, y) != "":
+		return "chasm_l"
+	if ch == "^" and not LOW.has(cell(x + 1, y)) and cell(x + 1, y) != "":
+		return "chasm_r"
+	return LOW[ch]
 
 
 ## Neighbour-aware variants (edges/corners) so real tilesets can be wired later.
@@ -201,6 +225,7 @@ func _layer(n: String, ts: TileSet, collide: bool, z: int) -> TileMapLayer:
 func _spawn(c: String, x: int, y: int) -> void:
 	var node: Node2D = null
 	var gone := Game.is_gone(key_for(x, y))
+	var def: PackedStringArray = str(header.get(c, "")).split(":") if c.is_valid_int() else PackedStringArray()
 	match c:
 		"P":
 			player_start = Vector2i(x, y)
@@ -220,6 +245,7 @@ func _spawn(c: String, x: int, y: int) -> void:
 			node = ANTENNA.instantiate()
 			node.antenna_id = "a1"
 			node.hackable = map_name == "roof"
+			node.need = "cable"
 		"a", "m", "p", "s", "C":
 			if not gone or c == "C":
 				node = PICKUP.instantiate()
@@ -230,7 +256,30 @@ func _spawn(c: String, x: int, y: int) -> void:
 			node = DECOR.new()
 			node.kind = "car"
 		_:
-			if c.is_valid_int() and header.has(c):
+			if not def.is_empty() and def[0] == "npc":
+				node = NPC.new()
+				node.npc_id = def[1]
+			elif not def.is_empty() and def[0] == "antenna":
+				node = ANTENNA.instantiate()
+				node.antenna_id = def[1]
+				node.hackable = true
+				node.minigame = def[2]
+				node.need = "kable"
+				c = "A"
+			elif not def.is_empty() and def[0] == "horde":
+				if not Game.is_antenna_off(def[1]):
+					node = HORDE.new()
+					node.antenna_id = def[1]
+			elif not def.is_empty() and def[0] == "zip":
+				node = ZIPLINE.new()
+				node.end_pos = feet(int(def[1]), int(def[2]))
+				c = "A"
+			elif not def.is_empty() and def[0] == "boat":
+				node = BOAT.new()
+				node.target_map = def[1]
+				node.target_cell = Vector2i(int(def[2]), int(def[3]))
+				c = "A"
+			elif c.is_valid_int() and header.has(c):
 				var w := _warp_def(c)
 				if w.is_empty():
 					node = TRIGGER.new()
@@ -245,7 +294,7 @@ func _spawn(c: String, x: int, y: int) -> void:
 	node.set_meta("cell", Vector2i(x, y))
 	node.set_meta("key", key_for(x, y))
 	# Characters and tall props stand on their feet; areas sit in the cell centre.
-	node.position = feet(x, y) if (node is CharacterBody2D or c in ["A", "X", "c", "C"]) else center(x, y)
+	node.position = feet(x, y) if (node is CharacterBody2D or node is StaticBody2D and node.has_method("talk") 		or c in ["A", "X", "c", "C"]) else center(x, y)
 	entities.add_child(node)
 
 
@@ -260,6 +309,9 @@ func _make_tileset() -> TileSet:
 	ts.add_physics_layer()
 	ts.set_physics_layer_collision_layer(0, 1)
 	ts.set_physics_layer_collision_mask(0, 0)
+	ts.add_physics_layer()
+	ts.set_physics_layer_collision_layer(1, LOW_LAYER)
+	ts.set_physics_layer_collision_mask(1, 0)
 	var src := TileSetAtlasSource.new()
 	src.texture = ImageTexture.create_from_image(atlas)
 	src.texture_region_size = Vector2i(T, T)
@@ -269,10 +321,15 @@ func _make_tileset() -> TileSet:
 		var coord := Vector2i(i, 0)
 		src.create_tile(coord)
 		var base: String = _keys[i].split("_")[0]
+		var square := PackedVector2Array([Vector2(-h, -h), Vector2(h, -h), Vector2(h, h), Vector2(-h, h)])
 		if base in COLLIDE:
 			var td := src.get_tile_data(coord, 0)
 			td.add_collision_polygon(0)
-			td.set_collision_polygon_points(0, 0, PackedVector2Array([Vector2(-h, -h), Vector2(h, -h), Vector2(h, h), Vector2(-h, h)]))
+			td.set_collision_polygon_points(0, 0, square)
+		elif base in COLLIDE_LOW:
+			var td := src.get_tile_data(coord, 0)
+			td.add_collision_polygon(1)
+			td.set_collision_polygon_points(1, 0, square)
 	return ts
 
 

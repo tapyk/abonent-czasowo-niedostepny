@@ -1,7 +1,7 @@
 extends Control
 ## Bottom dialog strip.
 
-const W := 300
+const W := 234
 const H := 42
 const CPS := 38.0
 

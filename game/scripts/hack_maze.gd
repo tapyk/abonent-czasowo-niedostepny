@@ -31,6 +31,8 @@ func _ready() -> void:
 
 
 func open(a: Node, p: Node) -> void:
+	if a.minigame != "maze":
+		return
 	antenna = a
 	player = p
 	if _seed != a.maze_seed:

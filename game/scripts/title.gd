@@ -20,7 +20,9 @@ func _process(delta: float) -> void:
 
 func _start() -> void:
 	Sfx.set_static(0.0)
-	get_tree().change_scene_to_file("res://scenes/main.tscn")
+	# Dev runs (autotest / screenshots / autostart) skip the intro cutscene.
+	var dev := Game.dev.has("autostart") or Game.dev.has("autotest") or Game.dev.has("shot")
+	get_tree().change_scene_to_file("res://scenes/main.tscn" if dev else "res://scenes/intro.tscn")
 
 
 func _draw() -> void:
@@ -41,7 +43,7 @@ func _draw() -> void:
 	if fmod(_t, 1.0) < 0.65:
 		_center(f, "[ENTER] start", 98, fs, Color("ffe08a"))
 	_center(f, "WSAD / strzałki  ruch", 124, fs, Color("8a929c"))
-	_center(f, "J/LPM strzał    K/PPM cios", 134, fs, Color("8a929c"))
+	_center(f, "LPM strzał w kursor   PPM cios", 134, fs, Color("8a929c"))
 	_center(f, "E akcja    ENTER dialog", 144, fs, Color("8a929c"))
 	_center(f, "ESC pauza / wyjście z panelu", 154, fs, Color("8a929c"))
 

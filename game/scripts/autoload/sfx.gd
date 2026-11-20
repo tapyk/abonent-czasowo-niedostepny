@@ -18,6 +18,7 @@ const SOUNDS := {
 	"confirm": ["ui_confirm.ogg"],
 	"error": ["ui_error.ogg"],
 	"shutdown": ["power_down.ogg"],
+	"explosion": ["explosion.ogg"],
 	"step": ["footstep_concrete_1.ogg", "footstep_concrete_2.ogg", "footstep_concrete_3.ogg"],
 }
 

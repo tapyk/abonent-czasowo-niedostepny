@@ -1,11 +1,17 @@
 extends CanvasLayer
-## In-game HUD: tablet.
+## In-game HUD: status strip.
 
 const HackMaze := preload("res://scripts/hack_maze.gd")
+const HackRings := preload("res://scripts/hack_rings.gd")
+const HackWires := preload("res://scripts/hack_wires.gd")
 const Tablet := preload("res://scripts/tablet.gd")
+const StatusBar := preload("res://scripts/status_bar.gd")
 const DialogBox := preload("res://scripts/dialog_box.gd")
+const VIEW := Vector2(320, 180)
 
 var tablet: Control
+var status: Control
+var crosshair: Control
 var dialog: Control
 var hack: Control
 var objective: Label
@@ -21,8 +27,12 @@ func _ready() -> void:
 	root.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	add_child(root)
 
+	status = StatusBar.new()
+	status.position = Vector2(4, 4)
+	root.add_child(status)
+
 	tablet = Tablet.new()
-	tablet.position = Vector2(4, 4)
+	tablet.position = VIEW - Vector2(Tablet.W, Tablet.H) - Vector2(3, 3)
 	root.add_child(tablet)
 
 	objective = _label(Color("c8d0d8"))
@@ -33,18 +43,25 @@ func _ready() -> void:
 	root.add_child(objective)
 
 	prompt = _label(Color("ffe08a"))
-	prompt.position = Vector2(20, 120)
-	prompt.size = Vector2(280, 12)
+	prompt.position = Vector2(8, 122)
+	prompt.size = Vector2(228, 12)
 	prompt.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	root.add_child(prompt)
 
 	dialog = DialogBox.new()
-	dialog.position = Vector2(10, 136)
+	dialog.position = Vector2(4, 136)
 	root.add_child(dialog)
 
 	hack = HackMaze.new()
-	hack.position = Vector2(192, 24)
-	root.add_child(hack)
+	for panel in [hack, HackRings.new(), HackWires.new()]:
+		panel.position = Vector2(VIEW.x - 124 - 4, 6)
+		root.add_child(panel)
+
+	crosshair = Control.new()
+	crosshair.set_anchors_preset(Control.PRESET_FULL_RECT)
+	crosshair.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	crosshair.draw.connect(_draw_crosshair)
+	root.add_child(crosshair)
 
 	fader = ColorRect.new()
 	fader.color = Color(0, 0, 0, 0)
@@ -76,7 +93,21 @@ func set_objective(text: String) -> void:
 	objective.text = text
 
 
+func set_hp(v: int, m: int) -> void:
+	status.set_hp(v, m)
+
+
+func _draw_crosshair() -> void:
+	var m := crosshair.get_local_mouse_position()
+	var c := Color(1, 0.9, 0.6, 0.9) if Game.has_pistol and Game.ammo > 0 else Color(0.8, 0.8, 0.8, 0.5)
+	for d in [Vector2.LEFT, Vector2.RIGHT, Vector2.UP, Vector2.DOWN]:
+		crosshair.draw_line(m + d * 2.0, m + d * 5.0, Color(0, 0, 0, 0.6), 2.0)
+		crosshair.draw_line(m + d * 2.0, m + d * 5.0, c, 1.0)
+	crosshair.draw_rect(Rect2(m - Vector2(0.5, 0.5), Vector2(1, 1)), c)
+
+
 func _process(_delta: float) -> void:
+	crosshair.queue_redraw()
 	var p := Game.player
 	if is_instance_valid(p) and p.current_interactable and not p.hacking and not p.dead:
 		prompt.text = p.current_interactable.prompt()

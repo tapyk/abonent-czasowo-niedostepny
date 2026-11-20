@@ -26,7 +26,11 @@ var facing := Vector2.DOWN
 var dead := false
 var hacking := false
 var frozen := false
+## On a zipline: the line moves him, he can still shoot.
+var riding := false
 var in_bush := 0
+var _aim := Vector2.ZERO
+var _aim_t := 0.0
 var _held: Array[String] = []
 var _fire_cd := 0.0
 var _melee_cd := 0.0
@@ -49,6 +53,7 @@ func _ready() -> void:
 	$Facing/Flashlight.offset = Vector2(75, 0)
 	$Aura.texture = Art.light_radial(112)
 	add_child(preload("res://scripts/detect_ring.gd").new())
+	collision_mask = 1 | 32  # walls + water / chasm
 	_animate(Vector2.ZERO)
 
 
@@ -58,6 +63,7 @@ func _physics_process(delta: float) -> void:
 	_invuln -= delta
 	_reveal -= delta
 	_melee_anim -= delta
+	_aim_t -= delta
 
 	Game.player_hidden = in_bush > 0 and _reveal <= 0.0 and not dead
 	sprite.modulate.a = 0.6 if Game.player_hidden else 1.0
@@ -65,19 +71,21 @@ func _physics_process(delta: float) -> void:
 
 	_track_input()
 	var dir := Vector2.ZERO
-	if not (dead or hacking or frozen) and not _held.is_empty():
+	if not (dead or hacking or frozen or riding) and not _held.is_empty():
 		dir = DIRS[_held.back()]
 		facing = dir
 	var speed := SPEED * (BUSH_SLOW if in_bush > 0 else 1.0)
 	_knock = _knock.move_toward(Vector2.ZERO, 900.0 * delta)
-	velocity = dir * speed + _knock
-	move_and_slide()
+	if not riding:
+		velocity = dir * speed + _knock
+		move_and_slide()
 
 	if not (dead or hacking or frozen):
 		if Input.is_action_just_pressed("shoot"):
-			shoot()
+			shoot(_aim_dir(MOUSE_BUTTON_LEFT))
 		if Input.is_action_just_pressed("melee"):
-			melee()
+			melee(_aim_dir(MOUSE_BUTTON_RIGHT))
+	if not (dead or hacking or frozen or riding):
 		_update_interactable()
 		if Input.is_action_just_pressed("interact") and current_interactable:
 			current_interactable.interact(self)
@@ -97,7 +105,24 @@ func _track_input() -> void:
 			_held.erase(a)
 
 
-func shoot() -> void:
+## Mouse button held -> aim at the cursor (and turn that way); otherwise facing.
+func _aim_dir(button: MouseButton) -> Vector2:
+	if not Input.is_mouse_button_pressed(button):
+		return facing
+	var d := get_global_mouse_position() - (global_position + Vector2(0, -6))
+	if d.length() < 2.0:
+		return facing
+	d = d.normalized()
+	if not riding:
+		facing = Vector2(signf(d.x), 0) if absf(d.x) > absf(d.y) else Vector2(0, signf(d.y))
+	_aim = d
+	_aim_t = 0.6
+	return d
+
+
+func shoot(dir := Vector2.ZERO) -> void:
+	if dir == Vector2.ZERO:
+		dir = facing
 	if _fire_cd > 0.0:
 		return
 	_fire_cd = FIRE_COOLDOWN
@@ -110,8 +135,11 @@ func shoot() -> void:
 	Game.ammo -= 1
 	Game.stats_changed.emit()
 	var b := BULLET.instantiate()
-	b.global_position = muzzle.global_position
-	b.direction = facing
+	b.global_position = global_position + Vector2(0, -6) + dir * 8.0
+	b.direction = dir
+	_aim = dir
+	_aim_t = maxf(_aim_t, 0.3)
+	facing_node.rotation = dir.angle()
 	get_parent().add_child(b)
 	Sfx.play("shoot")
 	_reveal = 1.5
@@ -120,7 +148,9 @@ func shoot() -> void:
 	get_tree().create_timer(0.06).timeout.connect(func(): flash.visible = false)
 
 
-func melee() -> void:
+func melee(dir := Vector2.ZERO) -> void:
+	if dir == Vector2.ZERO:
+		dir = facing
 	if _melee_cd > 0.0:
 		return
 	_melee_cd = MELEE_COOLDOWN
@@ -129,8 +159,8 @@ func melee() -> void:
 	var hit := false
 	for e in get_tree().get_nodes_in_group("enemies"):
 		var d: Vector2 = e.global_position - global_position
-		if d.length() <= MELEE_RANGE and (d.length() < 6.0 or d.normalized().dot(facing) > 0.3):
-			e.take_damage(1, facing * 150.0)
+		if d.length() <= MELEE_RANGE and (d.length() < 6.0 or d.normalized().dot(dir) > 0.3):
+			e.take_damage(1, dir * 150.0)
 			hit = true
 	if hit:
 		Sfx.play("hit")
@@ -170,6 +200,7 @@ func bounce_back() -> void:
 
 func _die() -> void:
 	dead = true
+	riding = false
 	set_hacking(false)
 	died.emit()
 
@@ -218,7 +249,7 @@ func _footsteps(delta: float, dir: Vector2) -> void:
 
 
 func _animate(dir: Vector2) -> void:
-	facing_node.rotation = facing.angle()
+	facing_node.rotation = _aim.angle() if _aim_t > 0.0 else facing.angle()
 	var kind := "walk" if dir != Vector2.ZERO else "idle"
 	if dead:
 		kind = "hurt"

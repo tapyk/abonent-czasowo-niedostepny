@@ -45,7 +45,7 @@ func _open_hack() -> void:
 	await _wait(0.3)
 	Game.has_cable = true
 	Game.antennas[0].interact(main.player)
-	var hack: Node = get_tree().get_first_node_in_group("hack_ui")
+	var hack: Node = _find("hack_ui", func(n): return n.get_script() == preload("res://scripts/hack_maze.gd"))
 	await _wait(0.3)
 	for i in 20:
 		hack.dot += Vector2(1.0, 0)
@@ -108,7 +108,7 @@ func _autotest() -> void:
 	_check("mutants in the world", enemies.size() >= 15, str(enemies.size()))
 	_check("burnt mutants present", enemies.any(func(e): return e.burnt))
 	_check("bushes spawned", get_tree().get_nodes_in_group("bushes").size() >= 15)
-	_check("antenna mast is a signal source", Game.antennas.size() == 1)
+	_check("antenna masts (a1 roof, a2 plantation) are signal sources", Game.antennas.size() == 2, str(Game.antennas.size()))
 	var thicket := _find("interactable", func(n): return n.get_script() == preload("res://scripts/thicket.gd"))
 	var horde := _find("interactable", func(n): return n.get_script() == preload("res://scripts/horde.gd"))
 	_check("thicket and horde gates exist", thicket != null and horde != null)
@@ -127,6 +127,12 @@ func _autotest() -> void:
 		p.shoot()
 		await _wait(0.2)
 	_check("pistol uses ammo", Game.ammo == 11, str(Game.ammo))
+	p._fire_cd = 0.0
+	var aim := Vector2(1, -1).normalized()
+	p.shoot(aim)
+	var shot: Node = _find_child(func(n): return "direction" in n and n.direction.is_equal_approx(aim))
+	_check("shots fly toward the aim point (mouse), not only 4 directions", shot != null)
+	Game.add_ammo(1)
 	_check("bullets hurt mutants", not is_instance_valid(target) or target.hp < hp_before or target.state == target.State.DEAD)
 	var victim: Node2D = get_tree().get_nodes_in_group("enemies")[0]
 	victim.global_position = p.global_position + Vector2(0, 12)
@@ -187,7 +193,7 @@ func _autotest() -> void:
 	_check("cable taken", Game.has_cable)
 	antenna.interact(p)
 	await _wait(0.4)
-	var hack: Node = get_tree().get_first_node_in_group("hack_ui")
+	var hack: Node = _find("hack_ui", func(n): return n.get_script() == preload("res://scripts/hack_maze.gd"))
 	_check("hack panel opens", hack.visible and p.hacking)
 	var err := Game.error_boost
 	hack._fail()
@@ -216,14 +222,131 @@ func _autotest() -> void:
 	_check("player respawns on the roof", not p.dead and p.hp == p.MAX_HP and Game.current_map == "roof")
 	Game.dev["god"] = true
 
-	# --- horde gone, east open, plane ---
+	# --- horde 1 gone, horde 2 still on the road ---
 	await _use_warp("world")
 	_check("back in the world", Game.current_map == "world")
-	horde = _find("interactable", func(n): return n.get_script() == preload("res://scripts/horde.gd"))
-	_check("horde left after antenna went silent", horde == null)
+	var hordes := get_tree().get_nodes_in_group("interactable").filter(func(n): return n.get_script() == preload("res://scripts/horde.gd"))
+	_check("horde 1 left after antenna 1 went silent", not hordes.any(func(h): return h.antenna_id == "a1"))
+	_check("horde 2 still blocks the road to the crevice", hordes.any(func(h): return h.antenna_id == "a2"))
 	_check("cut thicket stays cut", _find("interactable", func(n): return n.get_script() == preload("res://scripts/thicket.gd")) == null)
+	_check("no plane on the overworld any more", _find("interactable", func(n): return n.has_method("prompt") and n.prompt() == "[E] Samolot") == null)
+
+	# --- Fast Farmer's barn: no signal, 3 parts -> cables ---
+	await _use_warp("stodola")
+	_check("barn door leads inside", Game.current_map == "stodola")
+	await _wait(0.2)
+	_check("no signal in the foil barn (BRAK ZASIĘGU)", Game.bars == 0, str(Game.bars))
+	var farmer: Node = _find("npcs", func(n): return n.npc_id == "farmer")
+	_check("Fast Farmer is in the barn", farmer != null)
+	farmer.talk()
+	_check("farmer met, no cables without parts", Game.flags.has("farmer_met") and not Game.has_kable)
+	Game.parts = 3
+	farmer.talk()
+	_check("3 parts traded for the farmer's cables", Game.has_kable and Game.parts == 0, str(Game.parts))
+	await _use_warp("world")
+
+	# --- antenna 2: plantation, rings mini-game ---
+	var a2: Node = _find("antennas", func(n): return n.antenna_id == "a2")
+	_check("antenna 2 stands on the plantation, hackable (rings)", a2 != null and a2.hackable and a2.minigame == "rings")
+	p.global_position = a2.get_interact_position() + Vector2(0, 10)
+	await _wait(0.2)
+	a2.interact(p)
+	await _wait(0.4)
+	var rings: Node = _find("hack_ui", func(n): return n.get_script() == preload("res://scripts/hack_rings.gd"))
+	_check("rings panel opens", rings.visible and rings.active and p.hacking)
+	rings.angles[0] = rings.TARGET + PI
+	err = Game.error_boost
+	rings.press()
+	_check("badly stopped ring is an error", Game.error_boost > err and rings.current == 0)
+	for i in rings.RADII.size():
+		rings.debug_align()
+		rings.press()
+	_check("all rings aligned -> antenna 2 off", Game.is_antenna_off("a2") and not p.hacking)
+	main.load_map("world", Vector2i(100, 12))
+	await _frames(2)
+	hordes = get_tree().get_nodes_in_group("interactable").filter(func(n): return n.get_script() == preload("res://scripts/horde.gd"))
+	_check("horde 2 left after antenna 2 went silent", hordes.is_empty())
+
+	# --- crevice: zipline + zipline mutant ---
+	await _use_warp("szczelina")
+	_check("road's end leads to the crevice", Game.current_map == "szczelina")
+	_check("checkpoint at the crevice", Game.respawn_map == "szczelina")
+	var zip: Node2D = get_tree().get_first_node_in_group("ziplines")
+	_check("zipline over the chasm", zip != null)
+	p.global_position = zip.global_position + Vector2(-2, 2)
+	await _frames(2)
+	zip.interact(p)
+	await _frames(2)
+	_check("riding the zipline", p.riding and zip.rider == p)
+	_check("zipline mutant appears", is_instance_valid(zip.boss) and zip.boss.alive)
+	var waited_zip := 0.0
+	while is_instance_valid(zip.boss) and zip.boss.alive and waited_zip < 15.0:
+		p._fire_cd = 0.0
+		Game.ammo = maxi(Game.ammo, 5)
+		p.shoot((zip.boss.global_position + Vector2(0, -10) - (p.global_position + Vector2(0, -6))).normalized())
+		await _wait(0.25)
+		waited_zip += 0.25
+	_check("zipline mutant shot off the line", Game.flags.has("zip_boss_dead"), "%.1fs" % waited_zip)
+	waited_zip = 0.0
+	while zip.rider != null and waited_zip < 10.0:
+		await _wait(0.1)
+		waited_zip += 0.1
+	_check("rode across the chasm", not p.riding and Game.respawn_cell == Vector2i(29, 7), str(Game.respawn_cell))
+
+	# --- Trybunał CURN: Braun's quest + antenna 3 (wires) ---
+	await _use_warp("trybunal")
+	_check("crevice leads to the Trybunał", Game.current_map == "trybunal")
+	var braun: Node = _find("npcs", func(n): return n.npc_id == "braun")
+	_check("Donald Braun in the Trybunał", braun != null)
+	braun.talk()
+	_check("Braun gives the quest", Game.flags.has("braun_met"))
+	var boat: Node = get_tree().get_first_node_in_group("boats")
+	_check("boat at the pier", boat != null)
+	boat.interact(p)
+	await _wait(0.5)
+	_check("boat locked before the quest is done", Game.current_map == "trybunal" and not p.frozen)
+	var left: int = get_tree().get_nodes_in_group("enemies").size()
+	_check("Trybunał full of mutants", left >= 8, str(left))
+	for e in get_tree().get_nodes_in_group("enemies"):
+		e.take_damage(99, Vector2.ZERO)
+	await _wait(0.3)
+	_check("Trybunał cleared", Game.flags.has("trybunal_clear"))
+	var a3: Node = _find("antennas", func(n): return n.antenna_id == "a3")
+	_check("antenna 3 in the garden (wires)", a3 != null and a3.minigame == "wires")
+	a3.interact(p)
+	await _wait(0.4)
+	var wires: Node = _find("hack_ui", func(n): return n.get_script() == preload("res://scripts/hack_wires.gd"))
+	_check("wires panel opens", wires.visible and p.hacking)
+	wires.pick(0)
+	wires.plug(wires.debug_socket_for(0))
+	wires.pick(1)
+	err = Game.error_boost
+	wires.plug(wires.debug_socket_for(2))
+	_check("wrong socket sparks and pulls all wires", Game.error_boost > err and not wires.links.any(func(l): return l >= 0))
+	for i in 4:
+		wires.pick(i)
+		wires.plug(wires.debug_socket_for(i))
+	_check("all wires matched -> antenna 3 off", Game.is_antenna_off("a3") and not p.hacking)
+	braun.talk()
+	_check("Braun hands over the boat", Game.flags.has("braun_done"))
+
+	# --- boat across the lake, Mama, Braun's jet ---
+	boat.interact(p)
+	await _wait(9.0)
+	_check("boat crossing lands on Mama's shore", Game.current_map == "mama" and not p.frozen)
 	var plane := _find("interactable", func(n): return n.has_method("prompt") and n.prompt() == "[E] Samolot")
-	_check("plane at the airfield", plane != null)
+	_check("Braun's jet on the strip", plane != null)
+	plane.interact(p)
+	await _wait(0.5)
+	_check("no take-off without Mama", get_tree().current_scene == main)
+	await _use_warp("mama_dom")
+	_check("Mama's house", Game.current_map == "mama_dom")
+	var mama: Node = _find("npcs", func(n): return n.npc_id == "mama")
+	_check("Mama is home", mama != null)
+	mama.talk()
+	_check("met Mama", Game.flags.has("mama_met"))
+	await _use_warp("mama")
+	plane = _find("interactable", func(n): return n.has_method("prompt") and n.prompt() == "[E] Samolot")
 	if plane:
 		reparent(get_tree().root)  # survive the scene change
 		plane.interact(p)

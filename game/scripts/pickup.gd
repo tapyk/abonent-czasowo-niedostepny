@@ -66,7 +66,7 @@ func _on_body_entered(body: Node) -> void:
 			Game.has_pistol = true
 			Game.add_ammo(Game.START_AMMO)
 			Game.say_line("Johnny", "Pistolet taty. Zawsze mówił, że kiedyś się przyda. Wolałbym, żeby nie miał racji.")
-			Game.say_line("Tablet", "Strzał: J / LPM. Cios: K / PPM.")
+			Game.say_line("Tablet", "Strzał: LPM (tam, gdzie kursor) albo J. Cios: PPM / K.")
 		"sekator":
 			Game.has_sekator = true
 			Game.stats_changed.emit()

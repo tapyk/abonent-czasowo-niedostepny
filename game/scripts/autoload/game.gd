@@ -8,8 +8,8 @@ signal say(speaker: String, text: String, radio: bool)
 
 const MAX_BARS := 5
 const START_AMMO := 14
-## Antennas that exist in the whole game (MVP: only antenna 1). Radio noise = share still on.
-const ALL_ANTENNAS := ["a1"]
+## Antennas that exist in the whole game.
+const ALL_ANTENNAS := ["a1", "a2", "a3"]
 ## Distance to the nearest active antenna (px) -> base signal bars.
 const BAR_DISTANCES := [120.0, 240.0, 400.0, 640.0, 960.0]
 
@@ -31,6 +31,8 @@ var current_map := ""
 var has_pistol := false
 var has_sekator := false
 var has_cable := false
+## Fast Farmer's cables for antennas 2 and 3.
+var has_kable := false
 var parts := 0
 var ammo := 0
 ## Persistent world changes, keyed "map:x,y" -> true.
@@ -76,6 +78,7 @@ func new_game() -> void:
 	has_pistol = false
 	has_sekator = false
 	has_cable = false
+	has_kable = false
 	parts = 0
 	ammo = 0
 	gone.clear()
@@ -127,8 +130,14 @@ func has(item: String) -> bool:
 		"pistol": return has_pistol
 		"sekator": return has_sekator
 		"cable": return has_cable
-		"a1": return is_antenna_off("a1")
+		"kable": return has_kable
+		"a1", "a2", "a3": return is_antenna_off(item)
 	return flags.has(item)
+
+
+func set_checkpoint(map_name: String, cell: Vector2i) -> void:
+	respawn_map = map_name
+	respawn_cell = cell
 
 
 func add_error() -> void:
@@ -151,6 +160,11 @@ func add_ammo(n: int) -> void:
 
 func add_part() -> void:
 	parts += 1
+	stats_changed.emit()
+
+
+func take_parts(n: int) -> void:
+	parts = maxi(parts - n, 0)
 	stats_changed.emit()
 
 

@@ -26,6 +26,14 @@ static func enemy_frames(burnt: bool) -> SpriteFrames:
 	return _cache[key]
 
 
+static func npc_frames(path: String, tint := Color.WHITE) -> SpriteFrames:
+	var key := "npc_" + path
+	if not _cache.has(key):
+		var sf := _from_sheet(path, 4.0, tint) if path != "" else null
+		_cache[key] = sf if sf else _placeholder(Color("7a6a9a"), Color("e0b48a"), Color("3a3a48"))
+	return _cache[key]
+
+
 ## Kenney RPG Urban character sheet: 3x4 frames of 16x16; rows down/left/right/up.
 static func _from_sheet(path: String, fps: float, tint := Color.WHITE) -> SpriteFrames:
 	if Art.tex(path) == null:
