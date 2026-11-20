@@ -1,0 +1,44 @@
+[gd_scene format=3]
+
+[ext_resource type="Script" path="res://scripts/player.gd" id="1_player"]
+
+[sub_resource type="RectangleShape2D" id="RectangleShape2D_body"]
+size = Vector2(8, 20)
+
+[node name="Player" type="CharacterBody2D" unique_id=261560795]
+collision_layer = 2
+collision_mask = 33
+floor_snap_length = 4.0
+script = ExtResource("1_player")
+
+[node name="Sprite" type="AnimatedSprite2D" parent="." unique_id=1808686309]
+position = Vector2(0, -12)
+
+[node name="Shape" type="CollisionShape2D" parent="." unique_id=862588844]
+position = Vector2(0, -10)
+shape = SubResource("RectangleShape2D_body")
+
+[node name="Facing" type="Node2D" parent="." unique_id=1133275581]
+
+[node name="Muzzle" type="Marker2D" parent="Facing" unique_id=858336219]
+position = Vector2(9, -13)
+
+[node name="MuzzleFlash" type="Sprite2D" parent="Facing" unique_id=1906416726]
+z_index = 2
+position = Vector2(12, -13)
+
+[node name="Flashlight" type="PointLight2D" parent="Facing" unique_id=1858111303]
+position = Vector2(3, -14)
+color = Color(1, 0.95, 0.8, 1)
+energy = 1.15
+shadow_enabled = true
+
+[node name="Aura" type="PointLight2D" parent="." unique_id=1640912435]
+position = Vector2(0, -12)
+color = Color(0.75, 0.8, 1, 1)
+energy = 0.45
+
+[node name="Camera" type="Camera2D" parent="." unique_id=552254046]
+position = Vector2(0, -24)
+position_smoothing_enabled = true
+position_smoothing_speed = 7.0
