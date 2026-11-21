@@ -3,11 +3,14 @@ extends Control
 
 var _t := 0.0
 var _plane: Texture2D
+var _tower: Texture2D
+const TOWER_SRC := Rect2(29, 0, 74, 128)   # used part of wiezowiec.png
 
 
 func _ready() -> void:
 	set_anchors_preset(Control.PRESET_FULL_RECT)
-	_plane = PropArt.plane()
+	_plane = PropArt.plane_flying()
+	_tower = Art.tex("res://assets/sprites/buildings/wiezowiec.png")
 	Sfx.set_static(0.0)
 
 
@@ -26,12 +29,19 @@ func _draw() -> void:
 	var bottom := Color("1a1420").lerp(Color("e0905a"), dawn)
 	for y in 180:
 		draw_line(Vector2(0, y), Vector2(320, y), top.lerp(bottom, y / 180.0))
+	# the estate's towers against the dawn (dark, lightening a little with the sun)
+	var sil := Color(0.1, 0.1, 0.16).lerp(Color(0.32, 0.28, 0.36), dawn)
 	for i in 14:
-		var h := 14 + (i * 29) % 30
-		draw_rect(Rect2(i * 24, 180 - h, 22, h), Color("0b0c10"))
-	var p := Vector2(-60 + _t * 45.0, 150 - maxf(_t - 1.5, 0.0) * 18.0)
+		var h := 34.0 + float((i * 29) % 30)
+		var w := h * TOWER_SRC.size.x / TOWER_SRC.size.y
+		var r := Rect2(i * 24 - 2, 180 - h, w, h)
+		if _tower:
+			draw_texture_rect_region(_tower, r, TOWER_SRC, sil)
+		else:
+			draw_rect(r, Color("0b0c10"))
+	var p := Vector2(-70 + _t * 45.0, 150 - maxf(_t - 1.5, 0.0) * 18.0)
 	if _plane:
-		draw_set_transform(p, -0.12 if _t > 1.5 else 0.0)
+		draw_set_transform(p, -0.12 if _t > 1.5 else 0.0, Vector2(0.7, 0.7))
 		draw_texture(_plane, -_plane.get_size() / 2.0)
 		draw_set_transform(Vector2.ZERO)
 	if _t > 2.5:

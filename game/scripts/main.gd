@@ -5,6 +5,8 @@ const LEVEL := preload("res://scripts/level.gd")
 const BRIGHT_AFTER := Color(0.5, 0.5, 0.6)
 const INTERIORS := ["home", "stodola", "mama_dom"]
 const PARTS_NEEDED := 3
+## Where the damaged jet comes down on the estate after antenna 1.
+const WRECK_CELL := Vector2i(46, 37)
 
 @onready var world: Node2D = $World
 @onready var player: CharacterBody2D = $Player
@@ -44,6 +46,7 @@ func _ready() -> void:
 
 func _exit_tree() -> void:
 	Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
+	Engine.time_scale = 1.0  # in case the game is left during the death slow motion
 
 
 ## The story setup.
@@ -121,6 +124,11 @@ func _once(flag: String, lines: Array) -> void:
 
 
 func _on_enter_map(map_name: String) -> void:
+	if map_name == "world" and Game.is_antenna_off("a1"):
+		if Game.flags.has("plane_crashed"):
+			_spawn_wreck(false)
+		else:
+			_plane_crash()
 	match map_name:
 		"world":
 			_once("world_seen", [["Mama", "Widzisz czerwone światło na bloku naprzeciwko? Zacznij od tej anteny.", true]])
@@ -150,9 +158,9 @@ func objective() -> String:
 		return "Przetnij gąszcz, wejdź do bloku."
 	if not Game.has_kable:
 		if not Game.flags.has("farmer_met"):
-			return "Na wschód: stodoła Fast Farmera na polach."
+			return "Na wschód: stodoła Fasti Farmera na polach."
 		if Game.parts >= PARTS_NEEDED:
-			return "Zanieś części Fast Farmerowi."
+			return "Zanieś części Fasti Farmerowi."
 		return "Części od spalonych: %d/%d." % [Game.parts, PARTS_NEEDED]
 	if not Game.is_antenna_off("a2"):
 		return "Plantacja na wschodzie: zhakuj antenę 2."
@@ -255,6 +263,78 @@ func on_npc(id: String) -> void:
 			_talk_braun()
 		"mama":
 			_talk_mama()
+
+
+# --- the damaged jet -----------------------------------------------------------
+
+## After antenna 1: a damaged jet falls onto the estate (once), then stays as a wreck.
+func _plane_crash() -> void:
+	Game.flags["plane_crashed"] = true
+	if Game._saved.has("flags"):
+		Game._saved.flags["plane_crashed"] = true  # dying doesn't replay the crash
+	await get_tree().create_timer(1.2).timeout
+	if Game.current_map != "world":
+		return
+	_spawn_wreck(true)
+
+
+func _spawn_wreck(falling: bool) -> void:
+	var t := PropArt.plane_wrecked()
+	var n := Node2D.new()
+	n.name = "Wreck"
+	n.position = level.feet(WRECK_CELL.x, WRECK_CELL.y)
+	var shadow := Polygon2D.new()
+	var pts := PackedVector2Array()
+	for i in 16:
+		pts.append(Vector2(cos(i * TAU / 16.0) * t.get_width() * 0.4, sin(i * TAU / 16.0) * 5.0))
+	shadow.polygon = pts
+	shadow.color = Color(0, 0, 0, 0.35)
+	n.add_child(shadow)
+	var s := Sprite2D.new()
+	s.texture = t
+	var rest := Vector2(0, -t.get_height() / 2.0 + 4.0)
+	s.position = rest
+	s.rotation = 0.06
+	n.add_child(s)
+	var fire := PointLight2D.new()
+	fire.texture = Art.light_radial(96)
+	fire.color = Color(1.0, 0.55, 0.25)
+	fire.energy = 0.9
+	fire.position = Vector2(-10, -14)
+	n.add_child(fire)
+	var body := StaticBody2D.new()
+	var shape := CollisionShape2D.new()
+	var rect := RectangleShape2D.new()
+	rect.size = Vector2(t.get_width() * 0.55, 10)
+	shape.shape = rect
+	shape.position = Vector2(4, -5)
+	body.add_child(shape)
+	n.add_child(body)
+	level.entities.add_child(n)
+	var flicker := n.create_tween().set_loops()
+	flicker.tween_property(fire, "energy", 0.6, 0.15)
+	flicker.tween_property(fire, "energy", 1.0, 0.2)
+	if not falling:
+		return
+	# comes in from the upper left, nose down, its shadow growing on the ground
+	s.position = rest + Vector2(-240, -200)
+	s.rotation = 0.45
+	shadow.scale = Vector2(0.2, 0.2)
+	fire.visible = false
+	body.process_mode = Node.PROCESS_MODE_DISABLED
+	Sfx.play("growl", 0.0, -20.0)
+	var tw := n.create_tween().set_parallel(true)
+	tw.tween_property(s, "position", rest, 1.4).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN)
+	tw.tween_property(s, "rotation", 0.06, 1.4)
+	tw.tween_property(shadow, "scale", Vector2.ONE, 1.4)
+	await tw.finished
+	fire.visible = true
+	body.process_mode = Node.PROCESS_MODE_INHERIT
+	Sfx.play("explosion", 0.0, 2.0)
+	player.shake(4.0)
+	Game.say_line("Johnny", "…Samolot spadł.")
+	Game.say_line("Mama", "Johnny? Co tak huknęło?", true)
+	Game.say_line("Johnny", "Samolot. Ja jestem cały.")
 
 
 ## Esc menu save / autosave. Not while riding, sailing or switching maps.
@@ -388,7 +468,7 @@ func _on_antenna_disabled(a: Node) -> void:
 	match a.antenna_id:
 		"a1":
 			Game.say_line("Mama", "Słyszę cię lepiej! Horda z drogi odchodzi.", true)
-			Game.say_line("Mama", "Fast Farmer na polach ma kable do anten.", true)
+			Game.say_line("Mama", "Fasti Farmer na polach ma kable do anten.", true)
 			Game.say_line("Johnny", "Ten od folii? Idę.")
 		"a2":
 			Game.say_line("Mama", "Druga cicho! Horda odchodzi.", true)
@@ -404,12 +484,20 @@ func _on_antenna_disabled(a: Node) -> void:
 				Game.say_line("Johnny", "Braun ma łódkę. Zaraz będę.")
 
 
+## Death killcam.
 func _on_player_died() -> void:
 	hud.show_big("ABONENT NIEDOSTĘPNY", Color("ff4a3a"), 1.4)
-	await hud.fade(0.9, 0.8).finished
-	await get_tree().create_timer(1.6).timeout
+	Engine.time_scale = 0.45
+	player.drop_cap()
+	var cam: Camera2D = player.camera
+	cam.create_tween().tween_property(cam, "zoom", Vector2(2.5, 2.5), 0.45) 		.set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
+	await get_tree().create_timer(0.6).timeout  # game time: ~1.3 s in slow motion
+	Engine.time_scale = 1.0
+	await hud.fade(0.9, 0.6).finished
+	await get_tree().create_timer(0.8).timeout
 	Game.restore_state()
 	load_map(Game.respawn_map, Game.respawn_cell)
+	cam.zoom = Vector2.ONE
 	player.respawn()
 	hud.fade(0.0, 0.6)
 

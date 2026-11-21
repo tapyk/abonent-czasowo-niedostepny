@@ -1,12 +1,12 @@
 extends StaticBody2D
-## Story character standing in the world: Fast Farmer, Donald Braun, Mama.
+## Story character standing in the world: Fasti Farmer, Donald Braun, Mama.
 
 const SHEETS := {
 	"farmer": "hd:farmer",
 	"braun": "hd:braun",
-	"mama": "res://assets/sprites/characters/npc_woman.png",
+	"mama": "hd:mama",
 }
-const NAMES := {"farmer": "Fast Farmer", "braun": "Donald Braun", "mama": "Mama"}
+const NAMES := {"farmer": "Fasti Farmer", "braun": "Donald Braun", "mama": "Mama"}
 const TINTS := {"farmer": Color(1.0, 0.95, 0.8), "braun": Color(0.85, 0.9, 1.0), "mama": Color.WHITE}
 
 var npc_id := "farmer"

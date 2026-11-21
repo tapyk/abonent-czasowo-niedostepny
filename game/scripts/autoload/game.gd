@@ -32,7 +32,7 @@ var current_map := ""
 var has_pistol := false
 var has_sekator := false
 var has_cable := false
-## Fast Farmer's cables for antennas 2 and 3.
+## Fasti Farmer's cables for antennas 2 and 3.
 var has_kable := false
 var parts := 0
 var ammo := 0
@@ -176,6 +176,8 @@ func restore_state() -> void:
 # --- save file ------------------------------------------------------------------
 
 func save_path() -> String:
+	if dev.has("savefile"):
+		return "user://" + str(dev["savefile"])  # --savefile=<name>: dev / screenshot runs
 	return "user://save_test.json" if dev.has("autotest") else "user://save.json"
 
 

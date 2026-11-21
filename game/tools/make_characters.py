@@ -13,7 +13,10 @@ colour, so the art keeps its look) and turned into a strip of 5 frames, 32x32 ea
     4  breath: head and torso 1 px lower (idle)
 
 Johnny's poses (idle, shoot_flat/up/down, each also with the muzzle-flash variant)
-share one horizontal shift so the body stays in place when the pose changes.
+share one horizontal shift so the body stays in place when the pose changes, and
+all wear the aluminium cap (czapka.png, drawn on the same 64x64 canvas). Extra:
+johnny_cap.png (the cap alone, where it sits in the frame; it falls off on death)
+and johnny_dead.png (the drawing without the cap turned 90 degrees, lying).
 The dead worker becomes a single trimmed image (worker.png).
 
 Run from game/:  python tools/make_characters.py
@@ -48,9 +51,9 @@ def halve(img: Image.Image) -> Image.Image:
     return out
 
 
-def shift(img: Image.Image, dx: int) -> Image.Image:
+def shift(img: Image.Image, dx: int, dy: int = 0) -> Image.Image:
     out = Image.new("RGBA", img.size, (0, 0, 0, 0))
-    out.alpha_composite(img, (dx, 0)) if dx >= 0 else out.alpha_composite(img.crop((-dx, 0, img.width, img.height)), (0, 0))
+    out.paste(img, (dx, dy), img)
     return out
 
 
@@ -103,30 +106,49 @@ def legs_of(img: Image.Image, top: int, bottom: int) -> tuple[int, int]:
     return (min(xs), max(xs) + 1)
 
 
-def make_set(name: str, files: dict[str, str], folder: Path) -> None:
-    imgs = {k: halve(Image.open(folder / v)) for k, v in files.items()}
+def make_set(name: str, files: dict[str, str], folder: Path, overlay: Path | None = None) -> int:
+    def load(v: str) -> Image.Image:
+        im = Image.open(folder / v).convert("RGBA")
+        if overlay:
+            im.alpha_composite(Image.open(overlay).convert("RGBA"))
+        return halve(im)
+    imgs = {k: load(v) for k, v in files.items()}
     base = imgs["idle"]
     bx0, by0, bx1, by1 = body_box(base)
     legs = legs_of(base, by0, by1)
     # centre the body (the legs) on the frame, the same for every pose
     dx = F // 2 - (legs[0] + legs[1]) // 2
     legs = (legs[0] + dx, legs[1] + dx)
+    # touching the top edge: one row down, so the step frames (body up 1 px) keep it
+    dy = 1 if by0 == 0 and by1 < F else 0
     for k, img in imgs.items():
-        img = shift(img, dx)
-        strip(frames(img, legs, by0, by1)).save(OUT / f"{name}_{k}.png")
+        img = shift(img, dx, dy)
+        strip(frames(img, legs, by0 + dy, by1 + dy)).save(OUT / f"{name}_{k}.png")
         print("wrote", f"{name}_{k}.png")
+    return dx, dy
 
 
 def main() -> None:
     OUT.mkdir(parents=True, exist_ok=True)
-    make_set("johnny", {
+    lz = SRC / "ludzie"
+    jw = SRC / "johnny"
+    cap = lz / "czapka.png"
+    dx, dy = make_set("johnny", {
         "idle": "idle.png",
         "shoot_flat": "shoot_flat.png", "shoot_flat_fire": "shoot_flat_2.png",
         "shoot_up": "shoot_up.png", "shoot_up_fire": "shoot_up_2.png",
         "shoot_down": "shoot_down.png", "shoot_down_fire": "shoot_down2.png",
-    }, SRC / "johnny")
-    lz = SRC / "ludzie"
-    for name, file in [("farmer", "farmer.png"), ("braun", "donaldbraun.png"),
+    }, jw, cap)
+    shift(halve(Image.open(cap)), dx, dy).save(OUT / "johnny_cap.png")
+    print("wrote johnny_cap.png")
+    # lying: rotated in the 64 px original (lossless), halved, feet line at the bottom
+    dead = halve(Image.open(jw / "idle.png").convert("RGBA").rotate(90))
+    x0, y0, x1, y1 = dead.getbbox()
+    out = Image.new("RGBA", (F, F), (0, 0, 0, 0))
+    out.paste(dead.crop((x0, y0, x1, y1)), ((F - (x1 - x0)) // 2, F - 1 - (y1 - y0)))
+    out.save(OUT / "johnny_dead.png")
+    print("wrote johnny_dead.png")
+    for name, file in [("farmer", "farmer.png"), ("braun", "donaldbraun.png"), ("mama", "mama.png"),
                        ("mutant", "mutant_bialy.png"), ("mutant_burnt", "mutant_spalony.png")]:
         make_set(name, {"idle": file}, lz)
     worker = halve(Image.open(lz / "worker.png"))

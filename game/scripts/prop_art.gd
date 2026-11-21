@@ -21,15 +21,25 @@ static func thicket() -> Texture2D:
 
 
 static func antenna_mast() -> Texture2D:
-	return _or(Art.scaled(P + "props/prop_antenna.png", 0.75), Art.box(Vector2i(6, 56), Color("6d737c"), Color("3d4148")))
+	var m := Art.scaled(P + "props/maszt5.png", 1.0, Rect2i(22, 2, 22, 62))  # team's lattice mast
+	return _or(m if m else Art.scaled(P + "props/prop_antenna.png", 0.75), Art.box(Vector2i(6, 56), Color("6d737c"), Color("3d4148")))
 
 
 static func antenna_panel() -> Texture2D:
 	return _or(Art.scaled(P + "props/prop_control_box_2.png", 0.75), Art.box(Vector2i(10, 14), Color("39424d"), Color("8fd18f")))
 
 
+## Team's jet, side view, nose to the right: parked (gear down), flying, wrecked.
 static func plane() -> Texture2D:
-	return _or(Art.scaled(P + "props/airplane_topdown.png", 2.0), Art.box(Vector2i(48, 48), Color("c9ccd1")))
+	return _or(Art.scaled(P + "props/samolot_postoj.png", 1.0, Rect2i(19, 44, 148, 57)), Art.box(Vector2i(48, 48), Color("c9ccd1")))
+
+
+static func plane_flying() -> Texture2D:
+	return _or(Art.scaled(P + "props/samolot_lot.png", 1.0, Rect2i(19, 44, 148, 57)), plane())
+
+
+static func plane_wrecked() -> Texture2D:
+	return _or(Art.scaled(P + "props/samolot_uszkodzony.png", 1.0, Rect2i(19, 44, 148, 63)), plane())
 
 
 static func decor(_kind: String) -> Texture2D:

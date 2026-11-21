@@ -48,8 +48,8 @@ TT............,....,.....,......,.F,...,....:....,....F...TT.,ffffffffff:fffffff
 TT.......,,........T........,..,..F,........:.........F...TT.,fffZffffff:ffffffffff..ydddddddddddddddddddddyTT
 TT...T....,........,...,..........F.bb............,z..F...TT.,ffffffffff:fffzffffff..yyyyyyyyyyyyyyyyyyyyyyyTT
 TT..........................,.....F....Z..............F...TT..ffffffffff:ffffffffff.....,...,.........,.,...TT
-TT............T...........,.......F..,....,...,.b.....F...TT..ffffffffff:fffffffZff.,...............,.......TT
-TT....m...........................F,....bb..........,.F,..TT..ffffffffff:ffffffffff..................,,.....TT
+TT............T...........,.......F..,....,...,.......F...TT..ffffffffff:fffffffZff.,...............,.......TT
+TT....m...........................F,................,.F,..TT..ffffffffff:ffffffffff..................,,.....TT
 TT..,......bb.,....,...,......,...F.m.....,,.z......a.F...TT..ffffffffff:ffffffffff...........,...,.,.......TT
 TT..:::::::::::::::::::::::::::...FT,,...,......,.,.,TF...TT..ffffffffff:ffffffffff...,,..................,.TT
 TT......,,...........,...,........FFFFFFFFFFFFFFFFFFFFF...TT..ffffffffff:ffffffffff......................,..TT

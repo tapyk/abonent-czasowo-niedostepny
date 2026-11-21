@@ -16,6 +16,7 @@ const HORDE := preload("res://scripts/horde.gd")
 const NPC := preload("res://scripts/npc.gd")
 const ZIPLINE := preload("res://scripts/zipline.gd")
 const BOAT := preload("res://scripts/boat.gd")
+const GRASS_TUFTS := preload("res://scripts/grass_tufts.gd")
 
 const GROUND := {".": "grass", ",": "grass2", ":": "dirt", "=": "road", "_": "sidewalk",
 	"f": "field", "r": "runway", "o": "floor", "d": "sand", "j": "pier", "g": "plaza",
@@ -95,8 +96,28 @@ func build(name: String) -> void:
 		for e in _cells[layer_name]:
 			layer.set_cell(e[0], 0, Vector2i(_keys.find(e[1]), 0))
 	_place_buildings()
+	_place_grass()
 	for s in spawns:
 		_spawn(s[0], s[1], s[2])
+
+
+## Interactive grass tufts on plain grass cells (. and ,), drawn above the ground.
+func _place_grass() -> void:
+	if not TileArt.has_grass():
+		return
+	var cells: Array = []
+	for y in height:
+		for x in width:
+			if cell(x, y) in [".", ","]:
+				cells.append(Vector2i(x, y))
+	if cells.is_empty():
+		return
+	var g := GRASS_TUFTS.new()
+	g.name = "GrassTufts"
+	g.z_index = -9  # above the ground, after the walls; building pictures (-8) cover it
+	add_child(g)
+	move_child(g, walls.get_index() + 1)
+	g.setup(cells, hash(map_name))
 
 
 ## Building pictures from the `buildings` header (see the top of this file).

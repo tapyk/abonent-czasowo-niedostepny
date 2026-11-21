@@ -273,6 +273,10 @@ func _autotest() -> void:
 	p._invuln = 0.0
 	p.take_damage(999, p.global_position + Vector2(10, 0))
 	_check("player dies", p.dead)
+	await _frames(2)
+	if p.sprite.sprite_frames.has_animation("dead_down"):
+		_check("killcam: Johnny lies, the cap flies off", p.sprite.animation == "dead_down"
+			and p.get_parent().get_children().any(func(c): return c.name.begins_with("FallenCap")), p.sprite.animation)
 	await _wait(3.6)
 	_check("player respawns on the roof", not p.dead and p.hp == p.MAX_HP and Game.current_map == "roof")
 	_check("death rolls ammo and parts back to the checkpoint", Game.ammo == cp_ammo and Game.parts == cp_parts,
@@ -306,13 +310,13 @@ func _autotest() -> void:
 	_check("cut thicket stays cut", _find("interactable", func(n): return n.get_script() == preload("res://scripts/thicket.gd")) == null)
 	_check("no plane on the overworld any more", _find("interactable", func(n): return n.has_method("prompt") and n.prompt() == "[E] Samolot") == null)
 
-	# --- Fast Farmer's barn: no signal, 3 parts -> cables ---
+	# --- Fasti Farmer's barn: no signal, 3 parts -> cables ---
 	await _use_warp("stodola")
 	_check("barn door leads inside", Game.current_map == "stodola")
 	await _wait(0.2)
 	_check("no signal in the foil barn (BRAK ZASIĘGU)", Game.bars == 0, str(Game.bars))
 	var farmer: Node = _find("npcs", func(n): return n.npc_id == "farmer")
-	_check("Fast Farmer is in the barn", farmer != null)
+	_check("Fasti Farmer is in the barn", farmer != null)
 	farmer.talk()
 	_check("farmer met, no cables without parts", Game.flags.has("farmer_met") and not Game.has_kable)
 	await get_tree().process_frame

@@ -15,6 +15,11 @@ static func player_frames() -> SpriteFrames:
 	if not _cache.has("player"):
 		var sf := _from_strip("johnny", 8.0)
 		if sf:
+			# Lying (death): the drawing without the cap, turned on its side.
+			if Art.tex(HD + "johnny_dead.png"):
+				sf.add_animation("dead_down")
+				sf.set_animation_loop("dead_down", false)
+				sf.add_frame("dead_down", Art.tex(HD + "johnny_dead.png"))
 			# Fists: the drawing without the pistol.
 			sf.add_animation("punch_down")
 			sf.set_animation_loop("punch_down", false)
@@ -145,6 +150,18 @@ static func flip_for(sf: SpriteFrames, dir: Vector2) -> bool:
 		return false
 	var faces_left: bool = sf.get_meta("side_faces_left", false)
 	return (dir.x < 0) != faces_left
+
+
+## Johnny's aluminium cap alone.
+static func johnny_cap() -> Array:
+	var img := Art.image(HD + "johnny_cap.png")
+	if img == null:
+		return []
+	var r := img.get_used_rect()
+	var at := AtlasTexture.new()
+	at.atlas = Art.tex(HD + "johnny_cap.png")
+	at.region = Rect2(r)
+	return [at, Vector2(r.position) + Vector2(r.size) / 2.0 - Vector2(HD_FRAME, HD_FRAME) / 2.0]
 
 
 static func muzzle_flash() -> Texture2D:

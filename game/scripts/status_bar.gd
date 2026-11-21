@@ -1,5 +1,5 @@
 extends Control
-## Top-left status strip: HP, ammo, parts for Fast Farmer, progress items.
+## Top-left status strip: HP, ammo, parts for Fasti Farmer, progress items.
 
 const W := 96
 const H := 15

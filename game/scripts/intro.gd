@@ -286,8 +286,8 @@ func _captions(f: Font, fs: int) -> void:
 	var caps := [[0.3, T_FLASH - 0.2, "Noc. Widok z okna, 4. piętro."],
 		[T_FLASH + 2.0, T_FLASH + 6.4, "Sygnał z CURNu wszedł do sieci LTE."],
 		[T_FLASH + 3.6, T_FLASH + 6.4, "Każda antena nadaje go dalej."],
-		[T_FLASH + 6.6, T_PHONE - 0.1, "Ludzie w zasięgu mutują."],
-		[T_FLASH + 8.0, T_PHONE - 0.1, "Mutanci idą za sygnałem."]]
+		[T_FLASH + 6.6, T_PHONE + 2.0, "Ludzie w zasięgu mutują."],
+		[T_FLASH + 7.4, T_PHONE + 2.0, "Mutanci idą za sygnałem."]]  # ~3.6 s, stays under the phone
 	var shown := caps.filter(func(c): return _t >= c[0] and _t < c[1])
 	var y := 170.0 - 11.0 * (shown.size() - 1)
 	for c in shown:

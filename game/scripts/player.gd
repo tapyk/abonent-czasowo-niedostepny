@@ -228,7 +228,46 @@ func _die() -> void:
 	died.emit()
 
 
+## Killcam: the aluminium cap flies off Johnny's head and lands next to him.
+func drop_cap() -> void:
+	var cap := CharacterArt.johnny_cap()
+	if cap.is_empty():
+		return
+	var s := Sprite2D.new()
+	s.name = "FallenCap"
+	s.texture = cap[0]
+	var off: Vector2 = cap[1]
+	if sprite.flip_h:
+		off.x = -off.x
+		s.flip_h = true
+	var start := sprite.global_position + sprite.offset + off
+	var side := -1.0 if sprite.flip_h else 1.0
+	get_parent().add_child(s)
+	s.global_position = start
+	s.z_index = 1
+	var land := global_position + Vector2(side * 18.0, 2.0)
+	s.set_meta("arc", [start, (start + land) / 2.0 + Vector2(0, -22), land])
+	var tw := s.create_tween().set_parallel(true)
+	tw.tween_method(_cap_arc.bind(s), 0.0, 1.0, 0.7)
+	tw.tween_property(s, "rotation", side * TAU * 1.25, 0.7).set_ease(Tween.EASE_OUT)
+	tw.chain().tween_callback(func() -> void: Sfx.play("step", 0.1, -6.0))
+
+
+## Quadratic arc start -> top -> land for the falling cap.
+func _cap_arc(k: float, s: Sprite2D) -> void:
+	if not is_instance_valid(s):
+		return
+	var a: Array = s.get_meta("arc")
+	var p0: Vector2 = a[0]
+	var p1: Vector2 = a[1]
+	var p2: Vector2 = a[2]
+	s.global_position = p0.lerp(p1, k).lerp(p1.lerp(p2, k), k)
+
+
 func respawn() -> void:
+	for c in get_parent().get_children():
+		if c.name.begins_with("FallenCap"):
+			c.queue_free()
 	velocity = Vector2.ZERO
 	_knock = Vector2.ZERO
 	hp = MAX_HP
@@ -323,7 +362,9 @@ func _animate(dir: Vector2) -> void:
 	var anim := CharacterArt.anim_name(sf, kind, look)
 	sprite.flip_h = CharacterArt.flip_for(sf, look)
 	sprite.position = SPRITE_POS
-	if kind == "attack" and sf.has_animation("punch_down"):
+	if dead and sf.has_animation("dead_down"):
+		anim = "dead_down"
+	elif kind == "attack" and sf.has_animation("punch_down"):
 		# Fists (no pistol in hand) with a short lunge toward the hit.
 		anim = "punch_down"
 		sprite.position += _melee_dir * 3.0 * clampf(_melee_anim / 0.2, 0.0, 1.0)
