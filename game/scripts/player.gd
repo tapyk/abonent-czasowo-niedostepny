@@ -160,8 +160,8 @@ func shoot(dir := Vector2.ZERO) -> void:
 	Sfx.play("shoot")
 	_reveal = 1.5
 	Game.make_noise(global_position, 150.0)
-	if sprite.sprite_frames.has_animation("shoot_flat_fire"):
-		_fire_flash = 0.08  # the pose frame has its own flash
+	if sprite.sprite_frames.has_animation("gun_flat_fire_idle"):
+		_fire_flash = 0.1  # the *_2 drawing has its own flash
 	else:
 		flash.visible = true
 		get_tree().create_timer(0.06).timeout.connect(func(): flash.visible = false)
@@ -329,14 +329,21 @@ func _animate(dir: Vector2) -> void:
 		sprite.position += _melee_dir * 3.0 * clampf(_melee_anim / 0.2, 0.0, 1.0)
 		if absf(_melee_dir.x) > 0.05:
 			sprite.flip_h = _melee_dir.x < 0.0
-	elif not dead and Game.has_pistol and sf.has_animation("shoot_flat_idle"):
-		# Pistol in hand: pose follows the aim (the flashlight / cursor), the
-		# muzzle-flash frame right after a shot, mirrored when aiming left.
+	elif not dead and Game.has_pistol and sf.has_animation("gun_flat_idle"):
+		# Pistol in hand: shoot_up / flat / down drawing by where Johnny aims (the
+		# flashlight / cursor), walking with it too; the *_2 drawings (muzzle flash)
+		# right after a shot. Mirrored when aiming left.
 		var aim := Vector2.from_angle(facing_node.rotation)
 		var up := atan2(-aim.y, absf(aim.x))
 		var pose := "up" if up > 0.45 else ("down" if up < -0.45 else "flat")
-		anim = "shoot_%s_%s" % [pose, "fire" if _fire_flash > 0.0 else kind]
+		anim = "gun_%s_%s%s" % [pose, "fire_" if _fire_flash > 0.0 else "", kind]
 		if absf(aim.x) > 0.05:
 			sprite.flip_h = aim.x < 0.0
 	if sprite.animation != anim:
+		# Same kind of motion (pose change, shot): keep the step so the legs don't jump.
+		var keep := anim.ends_with("walk") and String(sprite.animation).ends_with("walk")
+		var f := sprite.frame
+		var fp := sprite.frame_progress
 		sprite.play(anim)
+		if keep:
+			sprite.set_frame_and_progress(f, fp)

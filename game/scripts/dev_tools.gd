@@ -115,6 +115,15 @@ func _autotest() -> void:
 	p.global_position = pistol.global_position
 	await _frames(3)
 	_check("pistol picked up, 14 rounds", Game.has_pistol and Game.ammo == 14, str(Game.ammo))
+	if p.sprite.sprite_frames.has_animation("gun_flat_idle"):
+		_check("Johnny holds the pistol (gun_* pose)", String(p.sprite.animation).begins_with("gun_"), p.sprite.animation)
+		p.shoot(Vector2.RIGHT)
+		await _frames(2)
+		_check("muzzle-flash drawing right after a shot", String(p.sprite.animation).contains("_fire_"), p.sprite.animation)
+		await _wait(0.4)
+		_check("back to the plain pistol pose after the flash", not String(p.sprite.animation).contains("_fire_"), p.sprite.animation)
+		Game.ammo += 1
+		Game.stats_changed.emit()
 	var q: Array = main.hud.dialog._queue.map(func(x): return x[1])
 	var i_pistol := q.find("Pistolet taty. Oby się nie przydał.")
 	var i_story := q.find("…jestem w domu za jeziorem… zacznij od bloku naprzeciwko…")

@@ -19,14 +19,11 @@ static func player_frames() -> SpriteFrames:
 			sf.add_animation("punch_down")
 			sf.set_animation_loop("punch_down", false)
 			sf.add_frame("punch_down", _strip_frame(HD + "johnny_idle.png", 0))
-			# Aiming poses: shoot_<flat|up|down>_<idle|walk|fire>.
+			# Pistol in hand: gun_<flat|up|down>_<idle|walk>, and the same with the
+			# muzzle flash (the *_2 drawings): gun_<pose>_fire_<idle|walk>.
 			for pose in ["flat", "up", "down"]:
-				_add_strip_anims(sf, "johnny_shoot_" + pose, "shoot_%s_" % pose, 8.0, ["idle", "walk"])
-				var fire := _strip_frame(HD + "johnny_shoot_%s_fire.png" % pose, 0)
-				if fire:
-					sf.add_animation("shoot_%s_fire" % pose)
-					sf.set_animation_loop("shoot_%s_fire" % pose, false)
-					sf.add_frame("shoot_%s_fire" % pose, fire)
+				_add_strip_anims(sf, "johnny_shoot_" + pose, "gun_%s_" % pose, 8.0, ["idle", "walk"], "")
+				_add_strip_anims(sf, "johnny_shoot_%s_fire" % pose, "gun_%s_fire_" % pose, 8.0, ["idle", "walk"], "")
 		else:
 			sf = _from_sheet(CH + "player_johnny.png", 8.0)
 		_cache["player"] = sf if sf else _placeholder(Color("c9a640"), Color("e0b48a"), Color("3a3a48"))
@@ -99,13 +96,14 @@ static func _from_strip(name: String, fps: float) -> SpriteFrames:
 
 
 ## Adds <prefix><kind>_down animations from one strip.
-static func _add_strip_anims(sf: SpriteFrames, file: String, prefix: String, fps: float, kinds: Array) -> void:
+static func _add_strip_anims(sf: SpriteFrames, file: String, prefix: String, fps: float, kinds: Array,
+		suffix := "_down") -> void:
 	var path := HD + file + ".png"
 	if Art.tex(path) == null:
 		return
 	var order := {"idle": [0, 0, 0, 4, 4, 4], "walk": [1, 2, 3, 0], "attack": [1, 3], "hurt": [0], "die": [0]}
 	for kind in kinds:
-		var a: String = prefix + kind + "_down"
+		var a: String = prefix + kind + suffix
 		sf.add_animation(a)
 		sf.set_animation_speed(a, 4.0 if kind == "idle" else fps * (2.0 if kind == "attack" else 1.0))
 		sf.set_animation_loop(a, kind in ["idle", "walk"])
