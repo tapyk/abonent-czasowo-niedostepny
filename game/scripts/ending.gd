@@ -1,5 +1,5 @@
 extends Control
-## Ending board (static, not a cutscene): dawn, Braun's jet takes off, Ireland.
+## Ending board (static, not a cutscene).
 
 var _t := 0.0
 var _plane: Texture2D
@@ -42,9 +42,11 @@ func _draw() -> void:
 	if _t > 5.5:
 		_center(f, "TRYB SAMOLOTOWY: WŁĄCZONY", 70, fs, Color("8fe0a0"))
 	if _t > 7.0:
-		_center(f, "Irlandia. Tam wojny nigdy nie było.", 92, fs, Color("ffe08a"))
-	if _t > 9.0 and fmod(_t, 1.0) < 0.65:
-		_center(f, "[ENTER] menu", 120, fs, Color("c0c8d0"))
+		_center(f, "Irlandia. Tam mutantów nigdy nie było.", 92, fs, Color("ffe08a"))
+	if _t > 8.5:
+		_center(f, "Anteny naprawione. Świat uratowany.", 106, fs, Color("8fe0a0"))
+	if _t > 10.0 and fmod(_t, 1.0) < 0.65:
+		_center(f, "[ENTER] menu", 128, fs, Color("c0c8d0"))
 
 
 func _center(f: Font, text: String, y: float, fs: int, c: Color) -> void:

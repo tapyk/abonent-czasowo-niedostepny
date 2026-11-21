@@ -227,6 +227,9 @@ func _solid_variant(ch: String, x: int, y: int) -> String:
 
 
 func _add(layer: String, x: int, y: int, key: String) -> void:
+	# Grass from the team's 32x32 tile (trawa.png): each cell takes its quarter.
+	if layer == "ground" and key in ["grass", "grass2"] and TileArt.has_grass():
+		key = "grass_q%d" % (posmod(x, 2) + posmod(y, 2) * 2)
 	if not _keys.has(key):
 		_keys.append(key)
 	_cells[layer].append([Vector2i(x, y), key])

@@ -292,6 +292,7 @@ func _talk_farmer() -> void:
 		Sfx.play("pickup")
 		hud.show_big("KABLE OD FARMERA", Color("8fe0a0"), 0.8)
 		Game.say_line("Farmer", "Trzy. Masz kable. Pasują do plantacji i Trybunału.")
+		Game.say_line("Farmer", "W Trybunale siedzi Donald. Garnitur, krawat. Nic mu nie dawaj za darmo.")
 		Game.say_line("Farmer", "Plantacja na wschodzie. Palmy jak na Cayo Perico.")
 		Game.say_line("Johnny", "A teraz?")
 		Game.say_line("Farmer", "Teraz rośnie tam tylko sygnał.")
@@ -336,12 +337,12 @@ func _talk_braun() -> void:
 
 func _talk_mama() -> void:
 	if Game.flags.has("mama_met"):
-		Game.say_line("Mama", "Braun czeka przy odrzutowcu. Chodź.")
+		Game.say_line("Mama", "Donald czeka przy odrzutowcu. Chodź.")
 		return
 	Game.flags["mama_met"] = true
 	hud.show_big("MAMA", Color("ffe08a"), 0.8)
 	Game.say_line("Johnny", "Cześć, mamo. Abonent dostępny.")
-	Game.say_line("Mama", "Potem się przytulimy. Odrzutowiec Brauna stoi za domem.")
+	Game.say_line("Mama", "Potem się przytulimy. Odrzutowiec Donalda stoi za domem.")
 	Game.say_line("Johnny", "Wiem. Wspólny interes.")
 
 
@@ -392,6 +393,7 @@ func _on_antenna_disabled(a: Node) -> void:
 		"a2":
 			Game.say_line("Mama", "Druga cicho! Horda odchodzi.", true)
 			Game.say_line("Mama", "Za drogą szczelina, dalej Trybunał CURN. Ostatnia antena.", true)
+			Game.say_line("Mama", "W Trybunale siedzi Donald. Pomoże, jak mu się opłaci.", true)
 			Game.say_line("Johnny", "Ostatnia. Brzmi dobrze.")
 		"a3":
 			Game.say_line("Mama", "Johnny… słyszę cię czysto.", true)

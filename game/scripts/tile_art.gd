@@ -38,9 +38,22 @@ const MAP := {
 const DRAWN := ["palm", "chasm", "chasm_top", "chasm_l", "chasm_r", "water", "water_top"]
 
 
+## The team's grass, 32x32: 2x2 tiles, picked by cell parity (grass_q0..q3).
+const GRASS := "res://assets/sprites/tiles/trawa.png"
+
+
+static func has_grass() -> bool:
+	return Art.tex(GRASS) != null
+
+
 static func get_tile(key: String) -> Texture2D:
 	if key in DRAWN:
 		return null
+	if key.begins_with("grass_q"):
+		var q := int(key.trim_prefix("grass_q"))
+		var g := Art.image(GRASS, Rect2i((q % 2) * 16, (q / 2) * 16, 16, 16))
+		if g:
+			return ImageTexture.create_from_image(g)
 	var e: Array = MAP.get(key, MAP.get(key.split("_")[0], []))
 	if e.is_empty():
 		return null

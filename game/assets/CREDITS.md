@@ -13,7 +13,7 @@ All sources were downloaded on 2026-11-20. The top-down re-sourcing (Kenney city
 
 ## Team art
 
-Drawn by the team for this game (not third-party): `source/johnny/*.png`, `source/ludzie/*.png` (64x64 originals), `sprites/characters/hd/*.png` (generated from them by `tools/make_characters.py`), `sprites/buildings/wiezowiec.png`, `sprites/buildings/curn.png`.
+Drawn by the team for this game (not third-party): `source/johnny/*.png`, `source/ludzie/*.png` (64x64 originals), `sprites/characters/hd/*.png` (generated from them by `tools/make_characters.py`), `sprites/buildings/*.png` (wiezowiec, curn_before, curn_after, farma, trybunal), `sprites/tiles/trawa.png`.
 
 ## Table
 

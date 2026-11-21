@@ -22,10 +22,11 @@ var _radioed := false
 var _rng := RandomNumberGenerator.new()
 var _buildings: Array = []            # [x, w, h] (tower pictures scaled to w x h)
 var _tower: Texture2D
-var _curn: Texture2D
+var _curn: Texture2D        # curn_before.png
+var _curn_after: Texture2D  # curn_after.png (ruin, on fire)
 const TOWER_SRC := Rect2(29, 0, 74, 128)   # used part of wiezowiec.png
-const CURN_SRC := Rect2(32, 36, 170, 92)   # used part of curn.png
-const CURN_SCALE := 0.36
+## curn_before / curn_after are 256x256 with the same ground line: centre x 145, bottom 252.
+const CURN_SCALE := 0.3
 var _antennas: Array = []             # [pos, lit_time]
 var _people: Array = []               # [x, speed, mutate_time]
 var _stars: Array = []
@@ -37,7 +38,8 @@ func _ready() -> void:
 	set_anchors_preset(Control.PRESET_FULL_RECT)
 	_rng.seed = 2026
 	_tower = Art.tex("res://assets/sprites/buildings/wiezowiec.png")
-	_curn = Art.tex("res://assets/sprites/buildings/curn.png")
+	_curn = Art.tex("res://assets/sprites/buildings/curn_before.png")
+	_curn_after = Art.tex("res://assets/sprites/buildings/curn_after.png")
 	var x := 0.0
 	while x < W:
 		var s := _rng.randf_range(0.18, 0.42)
@@ -169,11 +171,12 @@ func _draw_city() -> void:
 		draw_rect(Rect2(0, y, W, 4), top.lerp(bottom, y / 140.0))
 	for s in _stars:
 		draw_rect(Rect2(s, Vector2(1, 1)), Color(1, 1, 1, 0.6 * (1.0 - dust)))
-	# CURN: the building picture on the horizon (dark at night, burnt after the blast)
-	if _curn:
-		var cs := CURN_SRC.size * CURN_SCALE
-		var tint := Color(0.5, 0.55, 0.75) if _t < T_FLASH else Color(0.35, 0.22, 0.2)
-		draw_texture_rect_region(_curn, Rect2(Vector2(CURN.x - cs.x / 2.0, 140 - cs.y), cs), CURN_SRC, tint)
+	# CURN on the horizon: curn_before at night, the burning ruin (curn_after) after the blast
+	var ct := _curn if _t < T_FLASH else _curn_after
+	if ct:
+		var s := CURN_SCALE
+		var tint := Color(0.55, 0.6, 0.8) if _t < T_FLASH else Color(0.8, 0.7, 0.65)
+		draw_texture_rect(ct, Rect2(CURN.x - 145.0 * s, 140.0 - 252.0 * s, 256.0 * s, 256.0 * s), false, tint)
 	else:
 		draw_circle(CURN + Vector2(0, 6), 12.0, Color("1a2030"))
 	if _t < T_FLASH:
