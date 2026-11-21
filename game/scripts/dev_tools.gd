@@ -270,6 +270,22 @@ func _autotest() -> void:
 		"ammo %d/%d parts %d/%d" % [Game.ammo, cp_ammo, Game.parts, cp_parts])
 	_check("death brings back the world since the checkpoint",
 		not Game.is_gone("roof:test-after-checkpoint") and not Game.flags.has("test_after_checkpoint"))
+	var roof_mutants := get_tree().get_nodes_in_group("enemies")
+	for e in roof_mutants:
+		e.set_physics_process(false)
+		e.state = e.State.WANDER
+		e.global_position += Vector2(0, -2000)
+	p.hp = 50
+	p._since_hurt = 0.0
+	await _wait(1.0)
+	_check("no regen right after getting hurt", p.hp == 50, str(p.hp))
+	p._since_hurt = p.REGEN_DELAY
+	await _wait(1.0)
+	_check("health regenerates when nobody chases Johnny", p.hp > 50 and p.regenerating, str(p.hp))
+	p.heal(100)
+	for e in roof_mutants:
+		e.global_position += Vector2(0, 2000)
+		e.set_physics_process(true)
 	Game.dev["god"] = true
 
 	# --- horde 1 gone, horde 2 still on the road ---

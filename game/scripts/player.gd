@@ -14,6 +14,10 @@ const MAX_HP := 100
 const INVULN := 0.9
 const BUSH_SLOW := 0.55
 const LIGHT_TURN := 14.0    # how fast the flashlight follows the cursor
+const REGEN_DELAY := 4.0    # s without damage before health starts coming back
+const REGEN_RATE := 4.0     # HP/s
+const REGEN_QUIET := 10.0   # HP/s with no signal or hidden in a bush
+const CHASE_NEAR := 160.0   # a mutant chasing within this range stops the regen
 
 @onready var sprite: AnimatedSprite2D = $Sprite
 @onready var facing_node: Node2D = $Facing
@@ -38,6 +42,10 @@ var _reveal := 0.0
 var _step_t := 0.0
 var _melee_anim := 0.0
 var _knock := Vector2.ZERO
+var _since_hurt := 99.0
+var _regen_acc := 0.0
+## Health is coming back right now (the HUD shows it on the HP bar).
+var regenerating := false
 var current_interactable: Node = null
 
 
@@ -96,6 +104,7 @@ func _physics_process(delta: float) -> void:
 	else:
 		current_interactable = null
 	_footsteps(delta, dir)
+	_regen(delta)
 	_aim_light(delta)
 	_animate(dir)
 
@@ -173,6 +182,9 @@ func take_damage(amount: int, from: Vector2) -> void:
 		return
 	hp = maxi(hp - amount, 0)
 	_invuln = INVULN
+	_since_hurt = 0.0
+	_regen_acc = 0.0
+	regenerating = false
 	hp_changed.emit(hp, MAX_HP)
 	Sfx.play("hurt")
 	shake(3.0)
@@ -247,6 +259,32 @@ func _footsteps(delta: float, dir: Vector2) -> void:
 			Sfx.play("step", 0.15, -16.0)
 	else:
 		_step_t = 0.0
+
+
+func _regen(delta: float) -> void:
+	_since_hurt += delta
+	regenerating = not dead and hp < MAX_HP and _since_hurt >= REGEN_DELAY and not _chased()
+	if not regenerating:
+		_regen_acc = 0.0
+		return
+	if not Game.flags.has("regen_hint"):
+		Game.flags["regen_hint"] = true
+		Game.show_hint("Zdrowie wraca, gdy nikt cię nie goni. Bez zasięgu szybciej.")
+	_regen_acc += (REGEN_QUIET if Game.bars == 0 or Game.player_hidden else REGEN_RATE) * delta
+	if _regen_acc >= 1.0:
+		var n := int(_regen_acc)
+		_regen_acc -= n
+		heal(n)
+
+
+func _chased() -> bool:
+	for e in get_tree().get_nodes_in_group("enemies"):
+		var d: float = e.global_position.distance_to(global_position)
+		if d < 28.0:
+			return true  # anything biting distance (e.g. the zipline mutant)
+		if d < CHASE_NEAR and "state" in e and "burnt" in e and e.state == e.State.CHASE:
+			return true
+	return false
 
 
 ## Flashlight (and muzzle) turn toward the mouse cursor.
