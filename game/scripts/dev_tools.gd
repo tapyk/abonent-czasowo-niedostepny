@@ -102,6 +102,33 @@ func _autotest() -> void:
 	Input.action_release("move_down")
 	var moved := p.global_position - start
 	_check("walks diagonally", moved.x > 6.0 and absf(moved.x - moved.y) < 2.0, str(moved))
+	# a conversation freezes Johnny; his own remarks and the radio don't
+	var box = main.hud.dialog
+	Game.say_line("Johnny", "Test: zwykła kwestia.")
+	await _frames(2)
+	_check("Johnny's own remark does not block movement", not Game.dialog_lock)
+	box._queue.clear()
+	box._next()
+	Game.say_line("Farmer", "Test blokady ruchu.")
+	Game.say_line("Mama", "Test: radio w środku rozmowy.", true)
+	box.begin_conversation()
+	await _frames(2)
+	var before := p.global_position
+	Input.action_press("move_right")
+	await _frames(6)
+	Input.action_release("move_right")
+	_check("conversation blocks movement", Game.dialog_lock and p.global_position.distance_to(before) < 0.5,
+		str(p.global_position - before))
+	box._next()
+	_check("still blocked through a radio line inside the conversation", Game.dialog_lock)
+	box._queue.clear()
+	box._next()
+	_check("lock released when the dialog ends", not Game.dialog_lock)
+	Game.say_line("Mama", "Test radia.", true)
+	await _frames(2)
+	_check("Mama on the radio does not block movement", not Game.dialog_lock)
+	box._queue.clear()
+	box._next()
 	var to_mouse := p.get_global_mouse_position() - (p.global_position + Vector2(0, -6))
 	_check("flashlight points at the mouse cursor",
 		absf(angle_difference(p.facing_node.rotation, to_mouse.angle())) < 0.1,

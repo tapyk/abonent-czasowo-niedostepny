@@ -83,7 +83,8 @@ func _physics_process(delta: float) -> void:
 	sprite.visible = not (_invuln > 0.0 and not dead and int(_invuln * 20.0) % 2 == 1)
 
 	var dir := Vector2.ZERO
-	if not (dead or hacking or frozen or riding):
+	var talking := Game.dialog_lock
+	if not (dead or hacking or frozen or riding or talking):
 		dir = Input.get_vector("move_left", "move_right", "move_up", "move_down")
 		if dir != Vector2.ZERO:
 			# Snap to 8 directions so diagonals are exact and the speed stays the same.
@@ -95,7 +96,7 @@ func _physics_process(delta: float) -> void:
 		velocity = dir * speed + _knock
 		move_and_slide()
 
-	if not (dead or hacking or frozen):
+	if not (dead or hacking or frozen or talking):
 		if Input.is_action_just_pressed("shoot"):
 			if can_shoot():
 				shoot(_aim_dir(MOUSE_BUTTON_LEFT))
@@ -103,7 +104,7 @@ func _physics_process(delta: float) -> void:
 				melee(_aim_dir(MOUSE_BUTTON_LEFT))
 		if Input.is_action_just_pressed("melee"):
 			melee(_aim_dir(MOUSE_BUTTON_RIGHT))
-	if not (dead or hacking or frozen or riding):
+	if not (dead or hacking or frozen or riding or talking):
 		_update_interactable()
 		if Input.is_action_just_pressed("interact") and current_interactable:
 			current_interactable.interact(self)

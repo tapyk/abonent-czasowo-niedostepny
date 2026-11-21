@@ -18,6 +18,8 @@ const BAR_DISTANCES := [120.0, 240.0, 400.0, 640.0, 960.0]
 var bars := 0
 var error_boost := 0.0
 var hacking := false
+## A conversation / story line is on screen: Johnny and the mutants wait (dialog_box.gd).
+var dialog_lock := false
 var player: Node2D = null
 var player_hidden := false
 ## Antenna nodes in the currently loaded map (signal sources).
@@ -68,6 +70,7 @@ func _dev_shot() -> void:
 
 
 func new_game() -> void:
+	dialog_lock = false
 	bars = 0
 	error_boost = 0.0
 	hacking = false

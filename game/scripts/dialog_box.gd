@@ -15,6 +15,9 @@ var _full := ""
 var _shown := 0.0
 var _hold := 0.0
 var _radio := false
+var _urgent := false
+## A face-to-face conversation (Farmer, Donald, Mama) is running: see begin_conversation().
+var _conv := false
 var _active := false
 var _led := 0.0
 var _typed := 0
@@ -50,11 +53,14 @@ func _next() -> void:
 	if _queue.is_empty():
 		_active = false
 		visible = false
+		_conv = false
 		Sfx.set_static(0.0)
+		_set_lock()
 		return
 	var q: Array = _queue.pop_front()
 	_speaker = q[0]
 	_radio = q[2]
+	_urgent = q[3]
 	_full = _corrupt(q[1]) if _radio else q[1]
 	_shown = 0.0
 	_hold = 1.8 + _full.length() * 0.045
@@ -66,9 +72,25 @@ func _next() -> void:
 	position.y = BOTTOM - _h
 	_active = true
 	visible = true
+	_set_lock()
 	Sfx.set_static(Game.radio_noise() if _radio else 0.0)
 	if _radio:
 		Sfx.play("beep", 0.0, -10.0)
+
+
+func begin_conversation() -> void:
+	if not is_busy():
+		return
+	_conv = true
+	_set_lock()
+
+
+func _set_lock() -> void:
+	Game.dialog_lock = _active and _conv
+
+
+func _exit_tree() -> void:
+	Game.dialog_lock = false
 
 
 func _corrupt(text: String) -> String:
@@ -132,5 +154,7 @@ func _draw() -> void:
 		# walkie-talkie LED
 		draw_rect(Rect2(W - 6, 3, 2, 2), Color("ff3a2a") if fmod(_led, 0.5) < 0.25 else Color("5a1a14"))
 	draw_string(f, Vector2(PAD, PAD + 5), label, HORIZONTAL_ALIGNMENT_LEFT, -1, fs, name_col)
+	if Game.dialog_lock and fmod(_led, 1.0) < 0.7:
+		draw_string(f, Vector2(0, PAD + 5), "[Enter]", HORIZONTAL_ALIGNMENT_RIGHT, W - PAD, fs, Color("8a929c"))
 	var txt := _full.substr(0, int(_shown))
 	draw_multiline_string(f, Vector2(PAD, PAD + 5 + LINE), txt, HORIZONTAL_ALIGNMENT_LEFT, W - PAD * 2, fs, -1, Color("e6e6e6"))

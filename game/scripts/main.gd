@@ -220,7 +220,7 @@ func on_trigger(id: String) -> void:
 		"barn":
 			if not Game.flags.has("farmer_met"):
 				_once("barn_seen", [["???", "Stój! Masz telefon? Włączony?!"],
-					["Johnny", "Głos ze stodoły. Owiniętej folią aluminiową."]])
+					["Johnny", "…Już nie."]])
 		"plantation":
 			_once("plantation_seen", [["Johnny", "Palmy? Tutaj? Ktoś się bawił w Cayo Perico."],
 				["Mama", "Druga antena… stoi między palmami… pilnują jej spaleni…", true]])
@@ -263,6 +263,7 @@ func on_npc(id: String) -> void:
 			_talk_braun()
 		"mama":
 			_talk_mama()
+	hud.dialog.begin_conversation()  # Johnny and the mutants wait until it's over
 
 
 # --- the damaged jet -----------------------------------------------------------
@@ -355,8 +356,10 @@ func _talk_farmer() -> void:
 	if not Game.flags.has("farmer_met"):
 		Game.flags["farmer_met"] = true
 		save_game.call_deferred(true)
-		Game.say_line("Farmer", "Stój! Telefon włączony?")
-		Game.say_line("Johnny", "…Już nie.")
+		# The phone question was already shouted from the barn (barn trigger).
+		if not Game.flags.has("barn_seen"):
+			Game.say_line("Farmer", "Stój! Masz telefon? Włączony?!")
+			Game.say_line("Johnny", "…Już nie.")
 		Game.say_line("Farmer", "Dwadzieścia lat mówiłem, że ta sieć nas zje.")
 		Game.say_line("Farmer", "Kable do anten dam. Za trzy części od spalonych.")
 		if Game.parts < PARTS_NEEDED:
