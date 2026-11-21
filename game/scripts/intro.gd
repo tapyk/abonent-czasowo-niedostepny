@@ -7,8 +7,9 @@ const CURN := Vector2(236, 118)       # CURN complex on the horizon
 const T_FLASH := 3.5
 const T_PHONE := 12.5
 const T_RING := 12.7          # ringback (cut short when the recording starts)
-const T_MESSAGE := 15.5       # operator recording (cut off by the radio)
-const T_RADIO := 20.5         # black screen, Mama breaks through the static
+const T_MESSAGE := 15.5       # operator recording (Polish part only)
+const T_RADIO := 19.7         # black screen, Mama breaks through the static (just after
+                              # "proszę spróbować później": the recording is 3.85 s)
 const RADIO_CPS := 14.0       # typing speed of Mama's radio lines
 const MAMA_LINES := [[0.6, "Johnny… nie dzwoń…"], [2.4, "…oni idą za sygnałem…"],
 	[4.4, "…wyłącz anteny… jestem za jeziorem…"]]

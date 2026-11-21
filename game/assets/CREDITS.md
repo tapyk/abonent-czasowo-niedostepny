@@ -84,7 +84,7 @@ For every pack I read the license on the asset page (Kenney's "License" row, or 
 ### Phone audio in the intro (added 2026-11-20)
 
 - `audio/dial_tone.ogg`: ringback tone generated with ffmpeg (425 Hz sine, two 1 s beeps). Made for this project, no third-party content.
-- `audio/phone_unavailable.ogg`: operator recording "abonent czasowo niedostępny", taken at the team's request from YouTube (https://www.youtube.com/watch?v=XRQtjy3IUYE, uploader "Ex Alona"), trimmed to 0.45-8.8 s and loudness-normalised. **Not CC0, license unknown**: an operator's announcement, used as a placeholder for the hackathon only. Replace it with a self-recorded line before any public release.
+- `audio/phone_unavailable.ogg`: operator recording "abonent czasowo niedostępny", taken at the team's request from YouTube (https://www.youtube.com/watch?v=XRQtjy3IUYE, uploader "Ex Alona"), trimmed to 0.45-8.8 s and loudness-normalised, then cut to its first 3.85 s (Polish part only, ends just after "proszę spróbować później", 0.2 s fade). **Not CC0, license unknown**: an operator's announcement, used as a placeholder for the hackathon only. Replace it with a self-recorded line before any public release.
 
 ### Game font (added 2026-11-20)
 
