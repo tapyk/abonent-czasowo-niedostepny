@@ -31,7 +31,7 @@ func _ready() -> void:
 
 
 func open(a: Node, p: Node) -> void:
-	if a.minigame != "wires":
+	if Game.is_hard() or a.minigame != "wires":
 		return
 	antenna = a
 	player = p
@@ -88,14 +88,17 @@ func _process(delta: float) -> void:
 	if not is_instance_valid(player) or player.dead:
 		close()
 		return
-	if _open_t <= 0.0 and (Input.is_action_just_pressed("interact") or Input.is_action_just_pressed("back")):
+	var local_split := Game.coop and not SteamNet.is_online_coop()
+	var is_p2 := local_split and player == Game.player2
+	var leave := Input.is_action_just_pressed("back") or Input.is_action_just_pressed("p2_interact" if is_p2 else ("p1_interact" if local_split else "interact"))
+	if _open_t <= 0.0 and leave:
 		close()
 		return
-	if Input.is_action_just_pressed("move_up"):
+	if Input.is_action_just_pressed("p2_up" if is_p2 else ("p1_up" if local_split else "move_up")):
 		cursor = wrapi(cursor - 1, 0, 4)
-	if Input.is_action_just_pressed("move_down"):
+	if Input.is_action_just_pressed("p2_down" if is_p2 else ("p1_down" if local_split else "move_down")):
 		cursor = wrapi(cursor + 1, 0, 4)
-	if _open_t <= 0.0 and Input.is_action_just_pressed("accept"):
+	if _open_t <= 0.0 and Input.is_action_just_pressed("p2_accept" if is_p2 else ("p1_accept" if local_split else "accept")):
 		if picked < 0:
 			pick(cursor)
 		else:
@@ -105,6 +108,8 @@ func _process(delta: float) -> void:
 
 func _input(event: InputEvent) -> void:
 	if not active or _open_t > 0.0:
+		return
+	if Game.coop and not SteamNet.is_online_coop() and player == Game.player2:
 		return
 	if event is InputEventMouseButton and event.pressed and event.button_index == MOUSE_BUTTON_LEFT:
 		var m := get_local_mouse_position()

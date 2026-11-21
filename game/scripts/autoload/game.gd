@@ -19,7 +19,16 @@ var bars := 0
 var error_boost := 0.0
 var hacking := false
 var player: Node2D = null
+var player2: Node2D = null
 var player_hidden := false
+## Selected difficulty ("normal" | "hard") and 2-player co-op flags.
+var difficulty := "normal"
+var coop := false
+var coop_steam := false
+## Hard-mode saved stage per antenna + collected readable clues.
+var hard_stage := {"a1": 0, "a2": 0, "a3": 0}
+var notes: Array[Dictionary] = []
+var note_ids := {}
 ## Antenna nodes in the currently loaded map (signal sources).
 var antennas: Array[Node] = []
 var disabled_ids: Array[String] = []
@@ -52,6 +61,10 @@ func _ready() -> void:
 	process_mode = Node.PROCESS_MODE_ALWAYS
 	_setup_input()
 	_parse_args()
+	if dev.has("hard"):
+		difficulty = "hard"
+	if dev.has("coop"):
+		coop = true
 	if dev.has("shot"):
 		_dev_shot.call_deferred()
 
@@ -72,6 +85,7 @@ func new_game() -> void:
 	error_boost = 0.0
 	hacking = false
 	player = null
+	player2 = null
 	player_hidden = false
 	antennas.clear()
 	disabled_ids.clear()
@@ -87,7 +101,55 @@ func new_game() -> void:
 	ammo = 0
 	gone.clear()
 	flags.clear()
+	hard_stage = {"a1": 0, "a2": 0, "a3": 0}
+	notes.clear()
+	note_ids.clear()
 	save_state()
+
+
+func is_hard() -> bool:
+	return difficulty == "hard"
+
+
+func add_clue(id: String, group: String, text: String) -> bool:
+	if note_ids.has(id):
+		return false
+	note_ids[id] = true
+	notes.append({"id": id, "group": group, "text": text})
+	Sfx.play("confirm", 0.05, -8.0)
+	show_hint("Wskazówka [TAB]: " + text)
+	stats_changed.emit()
+	return true
+
+
+func clues_for(group: String) -> Array[String]:
+	var out: Array[String] = []
+	for n in notes:
+		if n.get("group", "") == group or group == "":
+			out.append(str(n.get("text", "")))
+	return out
+
+
+func living_players() -> Array[Node2D]:
+	var out: Array[Node2D] = []
+	for p in [player, player2]:
+		if is_instance_valid(p) and not p.dead:
+			out.append(p)
+	return out
+
+
+func nearest_target_player(from_pos: Vector2, burnt_enemy: bool) -> Node2D:
+	var best: Node2D = null
+	var best_d := INF
+	for p in living_players():
+		var hidden_p: bool = p.has_method("is_hidden") and p.is_hidden()
+		if hidden_p and not burnt_enemy:
+			continue
+		var d := from_pos.distance_to(p.global_position)
+		if d < best_d:
+			best_d = d
+			best = p
+	return best
 
 
 func register_antenna(a: Node) -> void:
@@ -154,6 +216,7 @@ func save_state() -> void:
 		"has_pistol": has_pistol, "has_sekator": has_sekator,
 		"has_cable": has_cable, "has_kable": has_kable,
 		"gone": gone.duplicate(), "flags": flags.duplicate(true),
+		"hard_stage": hard_stage.duplicate(), "notes": notes.duplicate(true), "note_ids": note_ids.duplicate(),
 	}
 
 
@@ -169,6 +232,9 @@ func restore_state() -> void:
 	has_kable = _saved.has_kable
 	gone = _saved.gone.duplicate()
 	flags = _saved.flags.duplicate(true)
+	hard_stage = _saved.get("hard_stage", {"a1": 0, "a2": 0, "a3": 0}).duplicate()
+	notes.assign(_saved.get("notes", []).duplicate(true))
+	note_ids = _saved.get("note_ids", {}).duplicate()
 	error_boost = 0.0
 	stats_changed.emit()
 
@@ -186,11 +252,13 @@ func has_save() -> bool:
 ## Writes the progress plus where Johnny stands (map, cell) and his HP.
 func save_game(map_name: String, cell: Vector2i, hp: int) -> bool:
 	var d := {
-		"version": 1, "map": map_name, "cell": [cell.x, cell.y], "hp": hp,
+		"version": 2, "map": map_name, "cell": [cell.x, cell.y], "hp": hp,
+		"difficulty": difficulty, "coop": coop,
 		"respawn_map": respawn_map, "respawn_cell": [respawn_cell.x, respawn_cell.y],
 		"ammo": ammo, "parts": parts,
 		"has_pistol": has_pistol, "has_sekator": has_sekator, "has_cable": has_cable, "has_kable": has_kable,
 		"disabled_ids": disabled_ids, "gone": gone.keys(), "flags": flags,
+		"hard_stage": hard_stage, "notes": notes,
 	}
 	var f := FileAccess.open(save_path(), FileAccess.WRITE)
 	if f == null:
@@ -208,6 +276,8 @@ func read_save() -> Dictionary:
 
 ## Puts a read save into the game state (after new_game()); returns map / cell / hp.
 func apply_save(d: Dictionary) -> Dictionary:
+	if str(d.get("difficulty", "")) in ["normal", "hard"]:
+		difficulty = str(d.get("difficulty", "normal"))
 	ammo = int(d.get("ammo", 0))
 	parts = int(d.get("parts", 0))
 	has_pistol = bool(d.get("has_pistol", false))
@@ -222,6 +292,15 @@ func apply_save(d: Dictionary) -> Dictionary:
 	for k in d.get("gone", []):
 		gone[str(k)] = true
 	flags = d.get("flags", {})
+	var hs: Dictionary = d.get("hard_stage", {})
+	for k in ["a1", "a2", "a3"]:
+		hard_stage[k] = int(hs.get(k, 0))
+	notes.clear()
+	note_ids.clear()
+	for n in d.get("notes", []):
+		if n is Dictionary and n.has("id"):
+			note_ids[str(n["id"])] = true
+			notes.append({"id": str(n["id"]), "group": str(n.get("group", "")), "text": str(n.get("text", ""))})
 	respawn_map = str(d.get("respawn_map", "home"))
 	var rc: Array = d.get("respawn_cell", [3, 5])
 	respawn_cell = Vector2i(int(rc[0]), int(rc[1]))
@@ -269,18 +348,18 @@ func show_hint(text: String) -> void:
 
 func _physics_process(delta: float) -> void:
 	error_boost = maxf(0.0, error_boost - delta / 6.0)
+	hacking = (is_instance_valid(player) and player.hacking) or (is_instance_valid(player2) and player2.hacking)
 	var new_bars := 0
-	if is_instance_valid(player):
+	var active_pls := living_players()
+	if not active_pls.is_empty():
 		var nearest := INF
 		for a in active_antennas():
-			nearest = minf(nearest, a.global_position.distance_to(player.global_position))
+			for pl in active_pls:
+				nearest = minf(nearest, a.global_position.distance_to(pl.global_position))
 		for i in BAR_DISTANCES.size():
 			if nearest < BAR_DISTANCES[i]:
 				new_bars = MAX_BARS - i
 				break
-		# Hacking and hacking errors make the antenna "louder", but only where there is
-		# a network at all: no signal stays no signal. Shots don't change the bars
-		# (they alert mutants via make_noise instead).
 		if new_bars > 0:
 			if hacking:
 				new_bars += 1
@@ -307,6 +386,24 @@ func _setup_input() -> void:
 		"interact": [KEY_E],
 		"back": [KEY_ESCAPE],
 		"accept": [KEY_ENTER, KEY_KP_ENTER, KEY_SPACE],
+		"toggle_notes": [KEY_TAB],
+		# Local 1-Screen Co-op split bindings (P1 = WASD + Mouse + E/J/K; P2 = Arrows + P/O/L or Numpad/Pad)
+		"p1_left": [KEY_A],
+		"p1_right": [KEY_D],
+		"p1_up": [KEY_W],
+		"p1_down": [KEY_S],
+		"p1_shoot": [KEY_J, MOUSE_BUTTON_LEFT],
+		"p1_melee": [KEY_K, KEY_F, MOUSE_BUTTON_RIGHT],
+		"p1_interact": [KEY_E],
+		"p1_accept": [KEY_SPACE],
+		"p2_left": [KEY_LEFT],
+		"p2_right": [KEY_RIGHT],
+		"p2_up": [KEY_UP],
+		"p2_down": [KEY_DOWN],
+		"p2_shoot": [KEY_P, KEY_KP_1, KEY_SLASH],
+		"p2_melee": [KEY_O, KEY_KP_2, KEY_PERIOD],
+		"p2_interact": [KEY_L, KEY_KP_0, KEY_SEMICOLON],
+		"p2_accept": [KEY_ENTER, KEY_KP_ENTER],
 	}
 	for action in map:
 		if InputMap.has_action(action):
@@ -314,7 +411,6 @@ func _setup_input() -> void:
 		InputMap.add_action(action)
 		for code in map[action]:
 			var ev: InputEvent
-			# Key codes are large numbers, so 1/2 can only mean mouse buttons here.
 			if code == MOUSE_BUTTON_LEFT or code == MOUSE_BUTTON_RIGHT:
 				ev = InputEventMouseButton.new()
 				ev.button_index = code
@@ -322,6 +418,34 @@ func _setup_input() -> void:
 				ev = InputEventKey.new()
 				ev.physical_keycode = code
 			InputMap.action_add_event(action, ev)
+	_setup_p2_joypad()
+
+
+func _setup_p2_joypad() -> void:
+	for pair in [
+		["p2_left", JOY_AXIS_LEFT_X, -1.0],
+		["p2_right", JOY_AXIS_LEFT_X, 1.0],
+		["p2_up", JOY_AXIS_LEFT_Y, -1.0],
+		["p2_down", JOY_AXIS_LEFT_Y, 1.0],
+	]:
+		var jm := InputEventJoypadMotion.new()
+		jm.axis = pair[1]
+		jm.axis_value = pair[2]
+		InputMap.action_add_event(pair[0], jm)
+	for bpair in [
+		["p2_left", JOY_BUTTON_DPAD_LEFT],
+		["p2_right", JOY_BUTTON_DPAD_RIGHT],
+		["p2_up", JOY_BUTTON_DPAD_UP],
+		["p2_down", JOY_BUTTON_DPAD_DOWN],
+		["p2_shoot", JOY_BUTTON_RIGHT_SHOULDER],
+		["p2_shoot", JOY_BUTTON_X],
+		["p2_melee", JOY_BUTTON_B],
+		["p2_interact", JOY_BUTTON_A],
+		["p2_accept", JOY_BUTTON_A],
+	]:
+		var jb := InputEventJoypadButton.new()
+		jb.button_index = bpair[1]
+		InputMap.action_add_event(bpair[0], jb)
 
 
 func _parse_args() -> void:

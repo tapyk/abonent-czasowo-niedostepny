@@ -21,6 +21,7 @@ Run from game/:  python tools/make_characters.py
 
 from collections import Counter
 from pathlib import Path
+from typing import Any
 
 from PIL import Image
 
@@ -33,9 +34,9 @@ F = 32  # frame size
 def halve(img: Image.Image) -> Image.Image:
     img = img.convert("RGBA")
     w, h = img.size
-    px = img.load()
+    px: Any = img.load()
     out = Image.new("RGBA", (w // 2, h // 2), (0, 0, 0, 0))
-    po = out.load()
+    po: Any = out.load()
     for y in range(0, h, 2):
         for x in range(0, w, 2):
             block = [px[x, y], px[x + 1, y], px[x, y + 1], px[x + 1, y + 1]]
@@ -55,7 +56,9 @@ def shift(img: Image.Image, dx: int) -> Image.Image:
 
 
 def body_box(img: Image.Image) -> tuple[int, int, int, int]:
-    return img.getbbox()
+    bbox = img.getbbox()
+    assert bbox is not None
+    return bbox
 
 
 def frames(img: Image.Image, legs_x: tuple[int, int], top: int, bottom: int) -> list[Image.Image]:
@@ -99,7 +102,8 @@ def strip(fr: list[Image.Image]) -> Image.Image:
 def legs_of(img: Image.Image, top: int, bottom: int) -> tuple[int, int]:
     """Horizontal extent of the opaque pixels in the bottom 20% of the figure."""
     y0 = top + int((bottom - top) * 0.8)
-    xs = [x for y in range(y0, bottom) for x in range(F) if img.getpixel((x, y))[3] > 0]
+    px: Any = img.load()
+    xs = [x for y in range(y0, bottom) for x in range(F) if px[x, y][3] > 0]
     return (min(xs), max(xs) + 1)
 
 
@@ -130,7 +134,9 @@ def main() -> None:
                        ("mutant", "mutant_bialy.png"), ("mutant_burnt", "mutant_spalony.png")]:
         make_set(name, {"idle": file}, lz)
     worker = halve(Image.open(lz / "worker.png"))
-    worker.crop(worker.getbbox()).save(OUT / "worker_dead.png")
+    wb = worker.getbbox()
+    if wb is not None:
+        worker.crop(wb).save(OUT / "worker_dead.png")
     print("wrote worker_dead.png")
 
 

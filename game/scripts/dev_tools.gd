@@ -2,6 +2,10 @@ class_name DevTools
 extends Node
 ## Dev helpers driven by command-line user args (after `--`).
 
+const HACK_MAZE := preload("res://scripts/hack_maze.gd")
+const THICKET := preload("res://scripts/thicket.gd")
+const HORDE := preload("res://scripts/horde.gd")
+
 var main: Node2D
 var _failed := 0
 
@@ -46,11 +50,11 @@ func _open_hack() -> void:
 	await _wait(0.3)
 	Game.has_cable = true
 	Game.antennas[0].interact(main.player)
-	var hack: Node = _find("hack_ui", func(n): return n.get_script() == preload("res://scripts/hack_maze.gd"))
+	var hack: Node = _find("hack_ui", func(n): return n.get_script() == HACK_MAZE)
 	await _wait(0.3)
 	for i in 20:
 		hack.dot += Vector2(1.0, 0)
-		hack._trail.append(hack.dot)
+		hack.get("_trail").append(hack.dot)
 
 
 func _check(what: String, ok: bool, info := "") -> void:
@@ -92,8 +96,9 @@ func _autotest() -> void:
 	_check("starts at home", Game.current_map == "home")
 	_check("no pistol at start", not Game.has_pistol and Game.ammo == 0)
 	_check("without a pistol LPM punches instead of shooting", not p.can_shoot())
+	var saved_st: Dictionary = Game.get("_saved")
 	_check("no checkpoint yet: death returns to start stats",
-		Game._saved.ammo == 0 and Game._saved.parts == 0 and not Game._saved.has_pistol and Game._saved.gone.is_empty())
+		saved_st.ammo == 0 and saved_st.parts == 0 and not saved_st.has_pistol and saved_st.gone.is_empty())
 	var start := p.global_position
 	Input.action_press("move_right")
 	Input.action_press("move_down")
@@ -106,7 +111,7 @@ func _autotest() -> void:
 	_check("flashlight points at the mouse cursor",
 		absf(angle_difference(p.facing_node.rotation, to_mouse.angle())) < 0.1,
 		"%.2f vs %.2f" % [p.facing_node.rotation, to_mouse.angle()])
-	var voice: AudioStreamWAV = Sfx._make_voice(Sfx.VOICES["Mama"], true)
+	var voice: AudioStreamWAV = Sfx.call("_make_voice", Sfx.VOICES["Mama"], true)
 	_check("voice blips synthesized per speaker", voice.data.size() > 1000, str(voice.data.size()))
 	await _use_warp("world")
 	_check("can't leave home without pistol", Game.current_map == "home")
@@ -124,13 +129,13 @@ func _autotest() -> void:
 		_check("back to the plain pistol pose after the flash", not String(p.sprite.animation).contains("_fire_"), p.sprite.animation)
 		Game.ammo += 1
 		Game.stats_changed.emit()
-	var q: Array = main.hud.dialog._queue.map(func(x): return x[1])
+	var q: Array = main.hud.dialog.get("_queue").map(func(x): return x[1])
 	var i_pistol := q.find("Pistolet taty. Oby się nie przydał.")
 	var i_story := q.find("…jestem w domu za jeziorem… zacznij od bloku naprzeciwko…")
 	_check("pickup line jumps ahead of queued story lines", i_pistol >= 0 and (i_story < 0 or i_pistol < i_story), str(q))
 	_check("control hint shown at once on the HUD", main.hud.hint.text.contains("LPM"), main.hud.hint.text)
 	_check("first mutant in the stairwell", get_tree().get_nodes_in_group("enemies").size() >= 1)
-	p._fire_cd = 0.0
+	p.set("_fire_cd", 0.0)
 	p.shoot()
 	await _frames(3)
 	_check("shooting where there is no network keeps 0 bars", Game.bars == 0, str(Game.bars))
@@ -148,8 +153,8 @@ func _autotest() -> void:
 	_check("burnt mutants present", enemies.any(func(e): return e.burnt))
 	_check("bushes spawned", get_tree().get_nodes_in_group("bushes").size() >= 15)
 	_check("antenna masts (a1 roof, a2 plantation) are signal sources", Game.antennas.size() == 2, str(Game.antennas.size()))
-	var thicket := _find("interactable", func(n): return n.get_script() == preload("res://scripts/thicket.gd"))
-	var horde := _find("interactable", func(n): return n.get_script() == preload("res://scripts/horde.gd"))
+	var thicket := _find("interactable", func(n): return n.get_script() == THICKET)
+	var horde := _find("interactable", func(n): return n.get_script() == HORDE)
 	_check("thicket and horde gates exist", thicket != null and horde != null)
 
 	# --- shooting & melee (enemies frozen for determinism) ---
@@ -159,14 +164,14 @@ func _autotest() -> void:
 	p.global_position = main.level.feet(10, 16)
 	target.global_position = p.global_position + Vector2(40, 0)
 	p.facing = Vector2.RIGHT
-	p._animate(Vector2.ZERO)
+	p.call("_animate", Vector2.ZERO)
 	var hp_before: int = target.hp
 	for i in 3:
-		p._fire_cd = 0.0
+		p.set("_fire_cd", 0.0)
 		p.shoot()
 		await _wait(0.2)
 	_check("pistol uses ammo", Game.ammo == 11, str(Game.ammo))
-	p._fire_cd = 0.0
+	p.set("_fire_cd", 0.0)
 	var aim := Vector2(1, -1).normalized()
 	p.shoot(aim)
 	var shot: Node = _find_child(func(n): return "direction" in n and n.direction.is_equal_approx(aim))
@@ -177,17 +182,17 @@ func _autotest() -> void:
 	victim.global_position = p.global_position + Vector2(0, 12)
 	p.facing = Vector2.DOWN
 	var vhp: int = victim.hp
-	p._melee_cd = 0.0
+	p.set("_melee_cd", 0.0)
 	p.melee()
 	_check("melee hits in facing direction", victim.hp < vhp)
 	var ammo_keep := Game.ammo
 	Game.ammo = 0
 	vhp = victim.hp
-	p._melee_cd = 0.0
+	p.set("_melee_cd", 0.0)
 	Input.action_press("shoot")
 	await _frames(2)
 	Input.action_release("shoot")
-	_check("with no ammo LPM / J punches", victim.hp < vhp and p._melee_cd > 0.0, "%d -> %d" % [vhp, victim.hp])
+	_check("with no ammo LPM / J punches", victim.hp < vhp and float(p.get("_melee_cd")) > 0.0, "%d -> %d" % [vhp, victim.hp])
 	Game.ammo = ammo_keep
 	Game.stats_changed.emit()
 	for e in get_tree().get_nodes_in_group("enemies"):
@@ -242,10 +247,10 @@ func _autotest() -> void:
 	_check("cable taken", Game.has_cable)
 	antenna.interact(p)
 	await _wait(0.4)
-	var hack: Node = _find("hack_ui", func(n): return n.get_script() == preload("res://scripts/hack_maze.gd"))
+	var hack: Node = _find("hack_ui", func(n): return n.get_script() == HACK_MAZE)
 	_check("hack panel opens", hack.visible and p.hacking)
 	var err := Game.error_boost
-	hack._fail()
+	hack.call("_fail")
 	_check("maze error raises bars", Game.error_boost > err)
 	var path: PackedVector2Array = hack.debug_solve()
 	_check("maze solvable with real collision", path.size() > 2, "%d points" % path.size())
@@ -270,7 +275,7 @@ func _autotest() -> void:
 	Game.mark_gone("roof:test-after-checkpoint")
 	Game.flags["test_after_checkpoint"] = true
 	Game.dev.erase("god")
-	p._invuln = 0.0
+	p.set("_invuln", 0.0)
 	p.take_damage(999, p.global_position + Vector2(10, 0))
 	_check("player dies", p.dead)
 	await _wait(3.6)
@@ -285,10 +290,10 @@ func _autotest() -> void:
 		e.state = e.State.WANDER
 		e.global_position += Vector2(0, -2000)
 	p.hp = 50
-	p._since_hurt = 0.0
+	p.set("_since_hurt", 0.0)
 	await _wait(1.0)
 	_check("no regen right after getting hurt", p.hp == 50, str(p.hp))
-	p._since_hurt = p.REGEN_DELAY
+	p.set("_since_hurt", p.REGEN_DELAY)
 	await _wait(1.0)
 	_check("health regenerates when nobody chases Johnny", p.hp > 50 and p.regenerating, str(p.hp))
 	p.heal(100)
@@ -300,10 +305,10 @@ func _autotest() -> void:
 	# --- horde 1 gone, horde 2 still on the road ---
 	await _use_warp("world")
 	_check("back in the world", Game.current_map == "world")
-	var hordes := get_tree().get_nodes_in_group("interactable").filter(func(n): return n.get_script() == preload("res://scripts/horde.gd"))
+	var hordes := get_tree().get_nodes_in_group("interactable").filter(func(n): return n.get_script() == HORDE)
 	_check("horde 1 left after antenna 1 went silent", not hordes.any(func(h): return h.antenna_id == "a1"))
 	_check("horde 2 still blocks the road to the crevice", hordes.any(func(h): return h.antenna_id == "a2"))
-	_check("cut thicket stays cut", _find("interactable", func(n): return n.get_script() == preload("res://scripts/thicket.gd")) == null)
+	_check("cut thicket stays cut", _find("interactable", func(n): return n.get_script() == THICKET) == null)
 	_check("no plane on the overworld any more", _find("interactable", func(n): return n.has_method("prompt") and n.prompt() == "[E] Samolot") == null)
 
 	# --- Fast Farmer's barn: no signal, 3 parts -> cables ---
@@ -342,7 +347,7 @@ func _autotest() -> void:
 	_check("all rings aligned -> antenna 2 off", Game.is_antenna_off("a2") and not p.hacking)
 	main.load_map("world", Vector2i(100, 12))
 	await _frames(2)
-	hordes = get_tree().get_nodes_in_group("interactable").filter(func(n): return n.get_script() == preload("res://scripts/horde.gd"))
+	hordes = get_tree().get_nodes_in_group("interactable").filter(func(n): return n.get_script() == HORDE)
 	_check("horde 2 left after antenna 2 went silent", hordes.is_empty())
 
 	# --- crevice: zipline + zipline mutant ---
@@ -359,7 +364,7 @@ func _autotest() -> void:
 	_check("zipline mutant appears", is_instance_valid(zip.boss) and zip.boss.alive)
 	var waited_zip := 0.0
 	while is_instance_valid(zip.boss) and zip.boss.alive and waited_zip < 15.0:
-		p._fire_cd = 0.0
+		p.set("_fire_cd", 0.0)
 		Game.ammo = maxi(Game.ammo, 5)
 		p.shoot((zip.boss.global_position + Vector2(0, -10) - (p.global_position + Vector2(0, -6))).normalized())
 		await _wait(0.25)

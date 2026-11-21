@@ -19,6 +19,8 @@ const REGEN_RATE := 4.0     # HP/s
 const REGEN_QUIET := 10.0   # HP/s with no signal or hidden in a bush
 const CHASE_NEAR := 160.0   # a mutant chasing within this range stops the regen
 
+@export var player_index := 1
+
 @onready var sprite: AnimatedSprite2D = $Sprite
 @onready var facing_node: Node2D = $Facing
 @onready var muzzle: Marker2D = $Facing/Muzzle
@@ -28,6 +30,8 @@ const CHASE_NEAR := 160.0   # a mutant chasing within this range stops the regen
 var hp := MAX_HP
 var facing := Vector2.DOWN
 var dead := false
+var _downed_t := 0.0
+var _p_tag: Label = null
 var hacking := false
 var frozen := false
 ## On a zipline: the line moves him, he can still shoot.
@@ -37,6 +41,7 @@ var _aim := Vector2.ZERO
 var _aim_t := 0.0
 var _fire_cd := 0.0
 var _melee_cd := 0.0
+var _interact_cd := 0.0
 var _invuln := 0.0
 var _reveal := 0.0
 var _step_t := 0.0
@@ -55,36 +60,63 @@ var current_interactable: Node = null
 
 func _ready() -> void:
 	add_to_group("player")
-	Game.player = self
+	if player_index == 1:
+		Game.player = self
+	else:
+		Game.player2 = self
+		camera.enabled = false
 	sprite.sprite_frames = CharacterArt.player_frames()
 	sprite.offset = sprite.sprite_frames.get_meta("offset", Vector2.ZERO)
+	if player_index == 2:
+		sprite.self_modulate = Color(0.76, 0.95, 1.16)
 	flash.texture = CharacterArt.muzzle_flash()
 	flash.material = Art.unshaded()
 	flash.visible = false
 	$Facing/Flashlight.texture = Art.light_cone(150, 24.0)
 	$Facing/Flashlight.offset = Vector2(75, 0)
+	if player_index == 2:
+		$Facing/Flashlight.color = Color(0.82, 0.95, 1.0, 1.0)
 	$Aura.texture = Art.light_radial(112)
 	add_child(preload("res://scripts/detect_ring.gd").new())
+	if Game.coop:
+		_p_tag = Label.new()
+		_p_tag.text = "P%d" % player_index
+		_p_tag.add_theme_font_override("font", Art.font())
+		_p_tag.add_theme_font_size_override("font_size", Art.FONT_SIZE)
+		_p_tag.add_theme_color_override("font_color", Color("8fc0ff") if player_index == 1 else Color("8fe0a0"))
+		_p_tag.material = Art.unshaded()
+		_p_tag.position = Vector2(-5, -27)
+		add_child(_p_tag)
 	collision_mask = 1 | 32  # walls + water / chasm
 	_animate(Vector2.ZERO)
+
+
+func is_hidden() -> bool:
+	return in_bush > 0 and _reveal <= 0.0 and not dead
 
 
 func _physics_process(delta: float) -> void:
 	_fire_cd -= delta
 	_melee_cd -= delta
+	_interact_cd -= delta
 	_invuln -= delta
 	_reveal -= delta
 	_melee_anim -= delta
 	_fire_flash -= delta
 	_aim_t -= delta
 
-	Game.player_hidden = in_bush > 0 and _reveal <= 0.0 and not dead
-	sprite.modulate.a = 0.6 if Game.player_hidden else 1.0
+	var my_hidden := is_hidden()
+	if player_index == 1:
+		Game.player_hidden = my_hidden
+	sprite.modulate.a = 0.6 if my_hidden else 1.0
 	sprite.visible = not (_invuln > 0.0 and not dead and int(_invuln * 20.0) % 2 == 1)
+
+	if dead and Game.coop:
+		_tick_coop_downed(delta)
 
 	var dir := Vector2.ZERO
 	if not (dead or hacking or frozen or riding):
-		dir = Input.get_vector("move_left", "move_right", "move_up", "move_down")
+		dir = _read_move_input()
 		if dir != Vector2.ZERO:
 			# Snap to 8 directions so diagonals are exact and the speed stays the same.
 			dir = Vector2.RIGHT.rotated(snappedf(dir.angle(), PI / 4.0))
@@ -96,23 +128,114 @@ func _physics_process(delta: float) -> void:
 		move_and_slide()
 
 	if not (dead or hacking or frozen):
-		if Input.is_action_just_pressed("shoot"):
-			if can_shoot():
-				shoot(_aim_dir(MOUSE_BUTTON_LEFT))
-			else:
-				melee(_aim_dir(MOUSE_BUTTON_LEFT))
-		if Input.is_action_just_pressed("melee"):
-			melee(_aim_dir(MOUSE_BUTTON_RIGHT))
+		_handle_combat_inputs()
 	if not (dead or hacking or frozen or riding):
 		_update_interactable()
-		if Input.is_action_just_pressed("interact") and current_interactable:
-			current_interactable.interact(self)
+		if _interact_cd <= 0.0 and _just_pressed_interact() and current_interactable:
+			if SteamNet.is_online_coop() and not SteamNet.is_host and player_index == 2:
+				SteamNet.send_client_action("interact", facing)
+			else:
+				current_interactable.interact(self)
 	else:
 		current_interactable = null
 	_footsteps(delta, dir)
 	_regen(delta)
 	_aim_light(delta)
 	_animate(dir)
+
+
+func _uses_mouse() -> bool:
+	if not Game.coop:
+		return true
+	if SteamNet.is_online_coop():
+		return (SteamNet.is_host and player_index == 1) or (not SteamNet.is_host and player_index == 2)
+	return player_index == 1
+
+
+func _read_move_input() -> Vector2:
+	if not Game.coop:
+		return Input.get_vector("move_left", "move_right", "move_up", "move_down")
+	if SteamNet.is_online_coop():
+		if SteamNet.is_host:
+			return Input.get_vector("move_left", "move_right", "move_up", "move_down") if player_index == 1 else SteamNet.remote_p2_move
+		return Input.get_vector("move_left", "move_right", "move_up", "move_down") if player_index == 2 else Vector2.ZERO
+	if player_index == 1:
+		return Input.get_vector("p1_left", "p1_right", "p1_up", "p1_down")
+	return Input.get_vector("p2_left", "p2_right", "p2_up", "p2_down")
+
+
+func _just_pressed_interact() -> bool:
+	if not Game.coop:
+		return Input.is_action_just_pressed("interact")
+	if SteamNet.is_online_coop():
+		if (SteamNet.is_host and player_index == 1) or (not SteamNet.is_host and player_index == 2):
+			return Input.is_action_just_pressed("interact")
+		return false
+	return Input.is_action_just_pressed("p1_interact" if player_index == 1 else "p2_interact")
+
+
+func _handle_combat_inputs() -> void:
+	if not Game.coop:
+		if Input.is_action_just_pressed("shoot"):
+			if can_shoot(): shoot(_aim_dir(MOUSE_BUTTON_LEFT))
+			else: melee(_aim_dir(MOUSE_BUTTON_LEFT))
+		if Input.is_action_just_pressed("melee"):
+			melee(_aim_dir(MOUSE_BUTTON_RIGHT))
+		return
+	if SteamNet.is_online_coop():
+		var local_ctrl := (SteamNet.is_host and player_index == 1) or (not SteamNet.is_host and player_index == 2)
+		if not local_ctrl:
+			return
+		if Input.is_action_just_pressed("shoot"):
+			var ad := _aim_dir(MOUSE_BUTTON_LEFT)
+			if SteamNet.is_host:
+				if can_shoot(): shoot(ad)
+				else: melee(ad)
+			else:
+				SteamNet.send_client_action("shoot", ad)
+		if Input.is_action_just_pressed("melee"):
+			var md := _aim_dir(MOUSE_BUTTON_RIGHT)
+			if SteamNet.is_host: melee(md)
+			else: SteamNet.send_client_action("melee", md)
+		return
+	# Local 1-screen split controls:
+	if player_index == 1:
+		if Input.is_action_just_pressed("p1_shoot"):
+			if can_shoot(): shoot(_aim_dir(MOUSE_BUTTON_LEFT))
+			else: melee(_aim_dir(MOUSE_BUTTON_LEFT))
+		if Input.is_action_just_pressed("p1_melee"):
+			melee(_aim_dir(MOUSE_BUTTON_RIGHT))
+	else:
+		var p2_aim := _p2_stick_or_facing()
+		if Input.is_action_just_pressed("p2_shoot"):
+			if can_shoot(): shoot(p2_aim)
+			else: melee(p2_aim)
+		if Input.is_action_just_pressed("p2_melee"):
+			melee(p2_aim)
+
+
+func _p2_stick_or_facing() -> Vector2:
+	var rx := Input.get_joy_axis(0, JOY_AXIS_RIGHT_X)
+	var ry := Input.get_joy_axis(0, JOY_AXIS_RIGHT_Y)
+	var rv := Vector2(rx, ry)
+	if rv.length() > 0.28:
+		return rv.normalized()
+	return facing
+
+
+func _tick_coop_downed(delta: float) -> void:
+	var other: Node2D = Game.player2 if player_index == 1 else Game.player
+	if not is_instance_valid(other) or other.dead:
+		return
+	var near_partner := other.global_position.distance_to(global_position) < 22.0
+	_downed_t -= delta * (3.5 if near_partner else 1.0)
+	if _downed_t <= 0.0:
+		dead = false
+		hp = 45 if near_partner else 30
+		_invuln = 1.6
+		hp_changed.emit(hp, MAX_HP)
+		Sfx.play("pickup", 0.08, -4.0)
+		Game.show_hint("Gracz P%d wraca do walki!" % player_index)
 
 
 ## Mouse button held -> aim at the cursor (and turn that way); otherwise facing.
@@ -223,8 +346,14 @@ func bounce_back() -> void:
 
 func _die() -> void:
 	dead = true
+	_downed_t = 6.0
 	riding = false
 	set_hacking(false)
+	if Game.coop:
+		var other: Node2D = Game.player2 if player_index == 1 else Game.player
+		if is_instance_valid(other) and not other.dead:
+			Game.show_hint("Gracz P%d powalony! Podejdź bliżej, by go ocucić!" % player_index)
+			return
 	died.emit()
 
 
@@ -239,6 +368,8 @@ func respawn() -> void:
 
 
 func set_hacking(on: bool) -> void:
+	if hacking and not on:
+		_interact_cd = 0.22
 	hacking = on
 	Game.hacking = on
 
@@ -303,9 +434,14 @@ func _aim_light(delta: float) -> void:
 	if _aim_t > 0.0:
 		want = _aim.angle()
 	elif not (dead or frozen or hacking):
-		var d := get_global_mouse_position() - (global_position + Vector2(0, -6))
-		if d.length() > 2.0:
-			want = d.angle()
+		if _uses_mouse():
+			var d := get_global_mouse_position() - (global_position + Vector2(0, -6))
+			if d.length() > 2.0:
+				want = d.angle()
+		elif SteamNet.is_online_coop() and SteamNet.is_host and player_index == 2:
+			want = SteamNet.remote_p2_aim.angle()
+		elif Game.coop and player_index == 2:
+			want = _p2_stick_or_facing().angle()
 	facing_node.rotation = lerp_angle(facing_node.rotation, want, minf(1.0, delta * LIGHT_TURN))
 
 

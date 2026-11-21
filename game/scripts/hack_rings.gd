@@ -30,7 +30,7 @@ func _ready() -> void:
 
 
 func open(a: Node, p: Node) -> void:
-	if a.minigame != "rings":
+	if Game.is_hard() or a.minigame != "rings":
 		return
 	antenna = a
 	player = p
@@ -76,13 +76,20 @@ func _process(delta: float) -> void:
 	if not is_instance_valid(player) or player.dead:
 		close()
 		return
-	if _open_t <= 0.0 and (Input.is_action_just_pressed("interact") or Input.is_action_just_pressed("back")):
+	var local_split := Game.coop and not SteamNet.is_online_coop()
+	var is_p2 := local_split and player == Game.player2
+	var leave := Input.is_action_just_pressed("back") or Input.is_action_just_pressed("p2_interact" if is_p2 else ("p1_interact" if local_split else "interact"))
+	if _open_t <= 0.0 and leave:
 		close()
 		return
 	for i in RADII.size():
 		if not locked[i]:
 			angles[i] = wrapf(angles[i] + speeds[i] * delta, -PI, PI)
-	if _open_t <= 0.0 and (Input.is_action_just_pressed("accept") or Input.is_action_just_pressed("shoot")):
+	var stop_hit := (Input.is_action_just_pressed("p2_accept") or Input.is_action_just_pressed("p2_shoot")) if is_p2 else (
+		(Input.is_action_just_pressed("p1_accept") or Input.is_action_just_pressed("p1_shoot")) if local_split else
+		(Input.is_action_just_pressed("accept") or Input.is_action_just_pressed("shoot"))
+	)
+	if _open_t <= 0.0 and stop_hit:
 		press()
 	queue_redraw()
 

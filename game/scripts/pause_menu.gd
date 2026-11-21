@@ -51,7 +51,9 @@ func _draw_box() -> void:
 	var f := Art.font()
 	var fs := Art.FONT_SIZE
 	_box.draw_rect(Rect2(0, 0, 320, 180), Color(0, 0, 0, 0.6))
-	_box.draw_string(f, Vector2(0, 80), "PAUZA", HORIZONTAL_ALIGNMENT_CENTER, 320, fs * 2, Color("e8e8e8"))
+	_box.draw_string(f, Vector2(0, 72), "PAUZA", HORIZONTAL_ALIGNMENT_CENTER, 320, fs * 2, Color("e8e8e8"))
+	var mode_info := "%s  |  POZIOM: %s" % ["CO-OP (2 GRACZY)" if Game.coop else "1 GRACZ", Game.difficulty.to_upper()]
+	_box.draw_string(f, Vector2(0, 88), mode_info, HORIZONTAL_ALIGNMENT_CENTER, 320, fs, Color("ffe08a"))
 	_box.draw_string(f, Vector2(0, 104), "[ESC] wróć    [S] zapisz    [W] wczytaj    [Q] menu", HORIZONTAL_ALIGNMENT_CENTER, 320, fs, Color("c0c8d0"))
 	if _msg != "":
 		_box.draw_string(f, Vector2(0, 120), _msg, HORIZONTAL_ALIGNMENT_CENTER, 320, fs, Color("8fe0a0"))

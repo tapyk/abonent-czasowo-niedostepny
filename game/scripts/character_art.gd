@@ -91,7 +91,7 @@ static func _from_strip(name: String, fps: float) -> SpriteFrames:
 	_add_strip_anims(sf, name + "_idle", "", fps, ["idle", "walk", "attack", "hurt", "die"])
 	var img := Art.image(path, Rect2i(0, 0, HD_FRAME, HD_FRAME))
 	var bottom := img.get_used_rect().end.y
-	sf.set_meta("offset", Vector2(0, 8 + HD_FRAME / 2 - bottom))
+	sf.set_meta("offset", Vector2(0, 8.0 + HD_FRAME * 0.5 - bottom))
 	return sf
 
 

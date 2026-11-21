@@ -31,7 +31,7 @@ func _ready() -> void:
 
 
 func open(a: Node, p: Node) -> void:
-	if a.minigame != "maze":
+	if Game.is_hard() or a.minigame != "maze":
 		return
 	antenna = a
 	player = p
@@ -62,10 +62,16 @@ func _process(delta: float) -> void:
 	if not is_instance_valid(player) or player.dead:
 		close()
 		return
-	if _open_t <= 0.0 and (Input.is_action_just_pressed("interact") or Input.is_action_just_pressed("back")):
+	var local_split := Game.coop and not SteamNet.is_online_coop()
+	var is_p2 := local_split and player == Game.player2
+	var leave := Input.is_action_just_pressed("back") or Input.is_action_just_pressed("p2_interact" if is_p2 else ("p1_interact" if local_split else "interact"))
+	if _open_t <= 0.0 and leave:
 		close()
 		return
-	var v := Input.get_vector("move_left", "move_right", "move_up", "move_down")
+	var v := Input.get_vector("p2_left", "p2_right", "p2_up", "p2_down") if is_p2 else (
+		Input.get_vector("p1_left", "p1_right", "p1_up", "p1_down") if local_split else
+		Input.get_vector("move_left", "move_right", "move_up", "move_down")
+	)
 	if v != Vector2.ZERO:
 		var next := dot + v * SPEED * delta
 		if _hits_wall(next):

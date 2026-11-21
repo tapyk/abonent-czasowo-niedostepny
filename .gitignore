@@ -1,6 +1,7 @@
 # Godot
 .godot/
 *.tmp
+~*.dll
 export/
 /android/
 
