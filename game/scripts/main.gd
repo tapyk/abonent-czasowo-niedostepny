@@ -138,7 +138,14 @@ func _on_enter_map(map_name: String) -> void:
 			_once("szczelina_seen", [["Johnny", "Szczelina po wybuchu CURNu."],
 				["Mama", "Nad szczeliną tyrolka… coś na niej wisi…", true]])
 		"trybunal":
-			_once("trybunal_seen", [["Johnny", "Trybunał CURN. Pełno mutantów. I facet w garniturze."]])
+			# Braun shouts the deal across the plaza right away, so the player knows
+			# why the mutants have to go before fighting through them.
+			if not Game.flags.has("braun_met"):
+				Game.flags["braun_met"] = true
+				_once("trybunal_seen", [["Johnny", "Trybunał CURN. Pełno mutantów. I facet w garniturze."],
+					["Braun", "Pan tam! Tak, pan, w czapce z folii!"],
+					["Braun", "Oczyści pan Trybunał i wyłączy antenę w ogrodzie, a łódka jest pańska."],
+					["Johnny", "Łódka. Dom mamy jest za jeziorem. Umowa."]])
 		"mama":
 			_once("mama_shore_seen", [["Johnny", "Dom mamy na górce. I odrzutowiec na pasie?"]])
 
@@ -170,7 +177,7 @@ func objective() -> String:
 		return "Przejedź tyrolką na drugą stronę [E]." if not Game.flags.has("zip_across") \
 			else "Na wschód, do Trybunału CURN."
 	if not Game.flags.has("braun_met"):
-		return "Trybunał CURN: porozmawiaj z Braunem."
+		return "Na wschód, do Trybunału CURN."
 	var left := _mutants_left()
 	if not Game.flags.has("trybunal_clear"):
 		return "Oczyść Trybunał z mutantów (%d)." % left if left >= 0 else "Oczyść Trybunał z mutantów."
