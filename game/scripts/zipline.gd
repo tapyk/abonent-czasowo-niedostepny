@@ -53,9 +53,9 @@ func _near_far_end(p: Vector2) -> bool:
 
 
 func get_interact_position() -> Vector2:
-	var p := Game.player
-	if is_instance_valid(p) and _near_far_end(p.global_position):
-		return to_global(end_pos - position) + Vector2(0, -6)
+	for p in Game.living_players():
+		if _near_far_end(p.global_position):
+			return to_global(end_pos - position) + Vector2(0, -6)
 	return global_position + Vector2(0, -6)
 
 
@@ -113,6 +113,11 @@ func _dismount() -> void:
 	r.global_position = lvl.to_global(lvl.feet(c.x, c.y))
 	Sfx.play("step", 0.1, -6.0)
 	if dir == 1:
+		if Game.coop:
+			for op in [Game.player, Game.player2]:
+				if is_instance_valid(op) and op != r:
+					var nc: Vector2i = lvl.nearest_walkable(c + Vector2i(1, 0)) if lvl.has_method("nearest_walkable") else c
+					op.global_position = lvl.to_global(lvl.feet(nc.x, nc.y))
 		Game.set_checkpoint(Game.current_map, c)
 		get_tree().call_group("story", "on_trigger", "zip_across")
 

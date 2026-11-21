@@ -30,7 +30,7 @@ func _ready() -> void:
 
 
 func open(a: Node, p: Node) -> void:
-	if a.minigame != "rings":
+	if Game.is_hard() or a.minigame != "rings":
 		return
 	antenna = a
 	player = p
@@ -76,13 +76,13 @@ func _process(delta: float) -> void:
 	if not is_instance_valid(player) or player.dead:
 		close()
 		return
-	if _open_t <= 0.0 and (Input.is_action_just_pressed("interact") or Input.is_action_just_pressed("back")):
+	if _open_t <= 0.0 and (Input.is_action_just_pressed(Game.action_for(player, "interact")) or Input.is_action_just_pressed("back")):
 		close()
 		return
 	for i in RADII.size():
 		if not locked[i]:
 			angles[i] = wrapf(angles[i] + speeds[i] * delta, -PI, PI)
-	if _open_t <= 0.0 and (Input.is_action_just_pressed("accept") or Input.is_action_just_pressed("shoot")):
+	if _open_t <= 0.0 and (Input.is_action_just_pressed(Game.action_for(player, "accept")) or Input.is_action_just_pressed(Game.action_for(player, "shoot"))):
 		press()
 	queue_redraw()
 

@@ -2,6 +2,10 @@ extends Node2D
 ## Game scene: loads maps.
 
 const LEVEL := preload("res://scripts/level.gd")
+const PLAYER_SCN := preload("res://scenes/player.tscn")
+const PICKUP_SCN := preload("res://scenes/pickup.tscn")
+const BULLET_SCN := preload("res://scenes/bullet.tscn")
+const NET_PUPPET := preload("res://scripts/net_puppet.gd")
 const BRIGHT_AFTER := Color(0.5, 0.5, 0.6)
 const INTERIORS := ["home", "stodola", "mama_dom"]
 const PARTS_NEEDED := 3
@@ -13,22 +17,44 @@ const WRECK_CELL := Vector2i(46, 37)
 @onready var hud: CanvasLayer = $HUD
 @onready var darkness: CanvasModulate = $Darkness
 
+var player2: CharacterBody2D = null
 var level: Node2D
 var _busy := false
+var _dying := false
 var _ending := false
 var _objective := ""
+# online client: host mutants / drops shown here (net id -> node), host map revision
+var _puppets := {}
+var _drops := {}
+var _net_rev := -1
 
 
 func _ready() -> void:
 	add_to_group("story")
+	if not Game.pending_load.is_empty():
+		if str(Game.pending_load.get("difficulty", "")) in ["normal", "hard"]:
+			Game.difficulty = str(Game.pending_load.get("difficulty", "normal"))
+		if Game.pending_load.has("coop"):
+			Game.coop = bool(Game.pending_load.get("coop", false))
 	Game.new_game()
 	Game.player = player  # new_game() runs after the player registered itself
 	player.died.connect(_on_player_died)
 	player.hp_changed.connect(hud.set_hp)
+	if Game.coop:
+		player2 = PLAYER_SCN.instantiate()
+		player2.name = "Player2"
+		player2.player_index = 2
+		add_child(player2)
+		Game.player2 = player2
+		player2.died.connect(_on_player_died)
+		player2.hp_changed.connect(hud.set_hp2)
 	Game.antenna_disabled.connect(_on_antenna_disabled)
 	add_child(preload("res://scripts/pause_menu.gd").new())
-	if not Game.dev.has("autotest"):
+	if not Game.dev.has("autotest") and not Touch.active:
 		Input.mouse_mode = Input.MOUSE_MODE_HIDDEN  # HUD draws a crosshair instead
+	if Net.is_client():
+		_client_start()
+		return
 	if not Game.pending_load.is_empty():
 		var s := Game.apply_save(Game.pending_load)
 		Game.pending_load = {}
@@ -51,17 +77,28 @@ func _exit_tree() -> void:
 
 ## The story setup.
 func _intro() -> void:
-	hud.show_hint("WASD: ruch   E: akcja   LPM: cios   Enter: dalej")
+	if Touch.active:
+		hud.show_hint("Lewa strona: ruch   prawa: celuj i strzel   E: akcja")
+	elif Net.is_host():
+		hud.show_hint("Online: grasz jako P1 (WASD + mysz, E). Zapisujesz ty.")
+	elif Game.coop:
+		hud.show_hint("P1: WASD+Mysz+E   P2: Strzałki+P/O/L (lub Pad)" + ("   TAB: wskazówki" if Game.is_hard() else ""))
+	elif Game.is_hard():
+		hud.show_hint("WASD: ruch   E: akcja   TAB: wskazówki   LPM: cios")
+	else:
+		hud.show_hint("WASD: ruch   E: akcja   LPM: cios   Enter: dalej")
 
 
 func _brightness() -> float:
 	return clampf(0.3 * Game.disabled_count, 0.0, 0.85)
 
 
-## Builds `map_name` and puts Johnny on `cell` (or the map's P marker).
+## Builds `map_name` and puts Johnny (and P2 in Co-op) on `cell` (or the map's P marker).
 func load_map(map_name: String, cell := Vector2i(-1, -1)) -> void:
 	if level:
 		player.reparent(self)
+		if is_instance_valid(player2):
+			player2.reparent(self)
 		level.free()
 	Game.antennas.clear()
 	Game.current_map = map_name
@@ -74,6 +111,20 @@ func load_map(map_name: String, cell := Vector2i(-1, -1)) -> void:
 	player.global_position = level.feet(c.x, c.y)
 	player.in_bush = 0
 	player.riding = false
+	if player.dead and Game.coop:
+		player.dead = false
+		player.heal(35)
+	if is_instance_valid(player2):
+		var c2: Vector2i = level.nearest_walkable(c + Vector2i(1, 0))
+		if c2.x < 0:
+			c2 = c
+		player2.reparent(level.entities)
+		player2.global_position = level.feet(c2.x, c2.y)
+		player2.in_bush = 0
+		player2.riding = false
+		if player2.dead:
+			player2.dead = false
+			player2.heal(35)
 	if level.header.has("checkpoint") and cell.x >= 0:
 		Game.set_checkpoint(map_name, c)
 	var dark: Color = level.darkness
@@ -81,8 +132,14 @@ func load_map(map_name: String, cell := Vector2i(-1, -1)) -> void:
 		dark = dark.lerp(BRIGHT_AFTER, _brightness())
 	darkness.color = dark
 	_fit_camera(level.bounds())
+	player.camera.position = Vector2(0, -8)
 	player.camera.reset_smoothing()
+	if Net.is_client():
+		_client_map_built()
+		return
 	_on_enter_map(map_name)
+	if Net.is_host():
+		Net.map_loaded()
 
 
 func _fit_camera(b: Rect2) -> void:
@@ -107,10 +164,14 @@ func warp_to(map_name: String, cell: Vector2i) -> void:
 		return
 	_busy = true
 	player.frozen = true
+	if is_instance_valid(player2):
+		player2.frozen = true
 	await hud.fade(1.0, 0.25).finished
 	load_map(map_name, cell)
 	await hud.fade(0.0, 0.25).finished
 	player.frozen = false
+	if is_instance_valid(player2):
+		player2.frozen = false
 	_busy = false
 
 
@@ -142,10 +203,14 @@ func _on_enter_map(map_name: String) -> void:
 			# why the mutants have to go before fighting through them.
 			if not Game.flags.has("braun_met"):
 				Game.flags["braun_met"] = true
-				_once("trybunal_seen", [["Johnny", "Trybunał CURN. Pełno mutantów. I facet w garniturze."],
+				var deal := [["Johnny", "Trybunał CURN. Pełno mutantów. I facet w garniturze."],
 					["Braun", "Pan tam! Tak, pan, w czapce z folii!"],
 					["Braun", "Oczyści pan Trybunał i wyłączy antenę w ogrodzie, a łódka jest pańska."],
-					["Johnny", "Łódka. Dom mamy jest za jeziorem. Umowa."]])
+					["Johnny", "Łódka. Dom mamy jest za jeziorem. Umowa."]]
+				if Game.is_hard():
+					Game.add_clue("a3_rule", "a3", "Braun: transformatory od największej mocy, faza przeciwna do zewnętrznej")
+					deal.append(["Braun", "Antenę zasilają trzy transformatory. Odcina się od najmocniejszego, a fazę ustawia przeciwnie do sieci."])
+				_once("trybunal_seen", deal)
 		"mama":
 			_once("mama_shore_seen", [["Johnny", "Dom mamy na górce. I odrzutowiec na pasie?"]])
 
@@ -200,6 +265,11 @@ func _mutants_left() -> int:
 
 
 func _process(_delta: float) -> void:
+	if Game.coop and is_instance_valid(player2):
+		_update_coop_camera_and_tether()
+	if Net.is_client():
+		_update_objective()
+		return
 	if Game.current_map == "trybunal" and not Game.flags.has("trybunal_clear") and _mutants_left() == 0 and not _busy:
 		Game.flags["trybunal_clear"] = true
 		hud.show_big("TRYBUNAŁ CZYSTY", Color("8fe0a0"), 1.0)
@@ -209,6 +279,10 @@ func _process(_delta: float) -> void:
 				Game.say_line("Johnny", "Została antena.")
 			else:
 				Game.say_line("Johnny", "Wracam do Brauna.")
+	_update_objective()
+
+
+func _update_objective() -> void:
 	var o := objective()
 	if o != _objective:
 		_objective = o
@@ -347,6 +421,8 @@ func _spawn_wreck(falling: bool) -> void:
 
 ## Esc menu save / autosave. Not while riding, sailing or switching maps.
 func can_save() -> bool:
+	if Net.is_client():
+		return false  # the host keeps the save
 	return not (_busy or _ending or player.dead or player.riding or Game.hacking)
 
 
@@ -359,6 +435,23 @@ func save_game(auto := false) -> bool:
 	return ok
 
 
+func _update_coop_camera_and_tether() -> void:
+	if not is_instance_valid(player) or not is_instance_valid(player2):
+		return
+	if not Net.is_client() and not player.riding and not player2.riding and not player.dead and not player2.dead:
+		var diff := player2.global_position - player.global_position
+		if absf(diff.x) > 256.0:
+			player2.global_position.x = player.global_position.x + signf(diff.x) * 256.0
+		if absf(diff.y) > 132.0:
+			player2.global_position.y = player.global_position.y + signf(diff.y) * 132.0
+	var target := player.global_position
+	if not player.dead and not player2.dead:
+		target = (player.global_position + player2.global_position) * 0.5
+	elif player.dead and not player2.dead:
+		target = player2.global_position
+	player.camera.global_position = target + Vector2(0, -8)
+
+
 func _talk_farmer() -> void:
 	if not Game.flags.has("farmer_met"):
 		Game.flags["farmer_met"] = true
@@ -369,10 +462,12 @@ func _talk_farmer() -> void:
 			Game.say_line("Johnny", "…Już nie.")
 		Game.say_line("Farmer", "Dwadzieścia lat mówiłem, że ta sieć nas zje.")
 		Game.say_line("Farmer", "Kable do anten dam. Za trzy części od spalonych.")
+		_farmer_hard_tip()
 		if Game.parts < PARTS_NEEDED:
 			return
 	if Game.has_kable:
 		Game.say_line("Farmer", "Kable masz. Antena jest na plantacji na wschodzie. Cayo Perico, tylko ze spalonymi.")
+		_farmer_hard_tip()
 		return
 	if Game.parts >= PARTS_NEEDED:
 		Game.take_parts(PARTS_NEEDED)
@@ -388,6 +483,12 @@ func _talk_farmer() -> void:
 		Game.say_line("Farmer", "Teraz rośnie tam tylko sygnał.")
 	else:
 		Game.say_line("Farmer", "Trzy części od spalonych. Masz %d. Świecą w ciemności." % Game.parts)
+
+
+## HARD: the Farmer also knows how the plantation masts are wired (once).
+func _farmer_hard_tip() -> void:
+	if Game.is_hard() and Game.add_clue("a2_farmer", "a2", "Farmer: odwróć Z2, a przy czerwonej diodzie też Z4"):
+		Game.say_line("Farmer", "I zapamiętaj: w masztach na plantacji odwróć zworkę Z2. Świeci czerwona dioda? To i Z4.")
 
 
 func _talk_braun() -> void:
@@ -450,12 +551,17 @@ func board_boat(boat: Node2D, _p: Node) -> void:
 	_busy = true
 	player.frozen = true
 	player.riding = true
+	if is_instance_valid(player2):
+		player2.frozen = true
+		player2.riding = true
 	Sfx.play("step", 0.1, -4.0)
 	var east := 1.0 if Game.current_map == "trybunal" else -1.0
 	var from := boat.global_position
 	var sail := func(v: Vector2) -> void:
 		boat.global_position = v
-		player.global_position = v + Vector2(-2, -3)
+		player.global_position = v + Vector2(-4, -3)
+		if is_instance_valid(player2):
+			player2.global_position = v + Vector2(3, -3)
 	var tw := create_tween()
 	tw.tween_method(sail, from, from + Vector2(140.0 * east, 24.0), 3.0).set_trans(Tween.TRANS_SINE)
 	await get_tree().create_timer(1.8).timeout
@@ -464,9 +570,13 @@ func board_boat(boat: Node2D, _p: Node) -> void:
 	hud.show_big("Chwilę później…", Color("c8d0d8"), 1.6)
 	await get_tree().create_timer(2.6).timeout
 	player.riding = false
+	if is_instance_valid(player2):
+		player2.riding = false
 	load_map(boat.target_map, boat.target_cell)
 	await hud.fade(0.0, 0.8).finished
 	player.frozen = false
+	if is_instance_valid(player2):
+		player2.frozen = false
 	_busy = false
 
 
@@ -496,6 +606,11 @@ func _on_antenna_disabled(a: Node) -> void:
 
 ## Death killcam.
 func _on_player_died() -> void:
+	# Own flag, not _busy: a death during a warp or the boat ride must still respawn.
+	# It only stops a second death (co-op: both players down) from running this twice.
+	if _dying:
+		return
+	_dying = true
 	hud.show_big("ABONENT NIEDOSTĘPNY", Color("ff4a3a"), 1.4)
 	Engine.time_scale = 0.45
 	player.drop_cap()
@@ -509,7 +624,10 @@ func _on_player_died() -> void:
 	load_map(Game.respawn_map, Game.respawn_cell)
 	cam.zoom = Vector2.ONE
 	player.respawn()
+	if is_instance_valid(player2):
+		player2.respawn()
 	hud.fade(0.0, 0.6)
+	_dying = false
 
 
 ## Braun's jet: needs silence (all antennas off) and Mama on board.
@@ -527,6 +645,146 @@ func go_to_ending() -> void:
 	if _ending:
 		return
 	_ending = true
+	Net.send_ending()
 	Sfx.set_static(0.0)
 	await hud.fade(1.0, 1.2).finished
 	get_tree().change_scene_to_file("res://scenes/ending.tscn")
+
+
+# --- online co-op (net.gd) ------------------------------------------------------------
+
+## Host: what the client needs every frame-ish: players, mutants, drops, bars.
+func net_snapshot() -> Dictionary:
+	var ps := []
+	for p in [player, player2]:
+		ps.append(p.net_snapshot() if is_instance_valid(p) else [])
+	var es := []
+	for e in get_tree().get_nodes_in_group("enemies"):
+		var spr: AnimatedSprite2D = null
+		for c in e.get_children():
+			if c is AnimatedSprite2D:
+				spr = c
+				break
+		if spr == null:
+			continue
+		es.append([Net.net_id(e), e.global_position, spr.position, spr.animation, spr.flip_h,
+			spr.rotation, spr.scale, spr.modulate, bool(e.get("burnt"))])
+	var ds := []
+	if level:
+		for n in level.entities.get_children():
+			if n is Area2D and "kind" in n and not n.has_meta("key"):
+				ds.append([Net.net_id(n), n.kind, n.global_position])
+	return {"r": Net.map_rev, "p": ps, "e": es, "d": ds, "b": Game.bars, "l": Game.dialog_lock}
+
+
+## Client: main.tscn just opened with the host's first state.
+func _client_start() -> void:
+	player.make_puppet()
+	if is_instance_valid(player2):
+		player2.make_puppet()
+	var st: Dictionary = Net.pending_state
+	Net.pending_state = {}
+	client_apply_state(st)
+	Net.flush_pending_dialog(hud.dialog)
+	hud.show_hint("Grasz jako P2. Host prowadzi grę i zapisuje.")
+
+
+## Client: the map is built like on the host, minus what the host simulates.
+func _client_map_built() -> void:
+	for e in get_tree().get_nodes_in_group("enemies"):
+		e.remove_from_group("enemies")
+		e.queue_free()
+	_puppets.clear()
+	_drops.clear()
+	if Game.current_map == "world" and Game.flags.has("plane_crashed"):
+		_spawn_wreck(false)
+
+
+func client_apply_state(st: Dictionary) -> void:
+	if st.is_empty():
+		return
+	var old_gone := Game.gone.duplicate()
+	var old_off := Game.disabled_ids.duplicate()
+	var had_wreck := Game.flags.has("plane_crashed")
+	Game.apply_net_state(st)
+	var rev := int(st.get("rev", 0))
+	if rev != _net_rev:
+		_net_rev = rev
+		load_map(str(st.get("map", "home")))
+		return
+	if level == null:
+		return
+	# world changes since the last state: taken pickups, cut thickets, silent antennas, the jet
+	for n in level.entities.get_children():
+		var k: String = str(n.get_meta("key", ""))
+		if k != "" and Game.gone.has(k) and not old_gone.has(k) and not n.is_in_group("player"):
+			var tw: Tween = n.create_tween()
+			tw.tween_property(n, "modulate:a", 0.0, 0.3)
+			tw.tween_callback(n.queue_free)
+	for a in Game.antennas:
+		if is_instance_valid(a) and Game.disabled_ids.has(a.antenna_id) and not old_off.has(a.antenna_id):
+			a._set_off()
+			Sfx.play("shutdown")
+			create_tween().tween_property(darkness, "color", level.darkness.lerp(BRIGHT_AFTER, _brightness()), 3.0)
+	if not had_wreck and Game.flags.has("plane_crashed") and Game.current_map == "world":
+		_spawn_wreck(true)
+
+
+func client_apply_snap(s: Dictionary) -> void:
+	if level == null or int(s.get("r", -1)) != _net_rev:
+		return  # snapshot from a map we haven't built yet
+	var ps: Array = s.get("p", [])
+	if ps.size() > 0 and not ps[0].is_empty():
+		player.net_apply(ps[0])
+	if ps.size() > 1 and not ps[1].is_empty() and is_instance_valid(player2):
+		player2.net_apply(ps[1])
+	var seen := {}
+	for e in s.get("e", []):
+		var id: String = e[0]
+		seen[id] = true
+		var pup: Node2D = _puppets.get(id)
+		if not is_instance_valid(pup):
+			pup = NET_PUPPET.new()
+			pup.burnt = e[8]
+			pup.position = e[1]
+			level.entities.add_child(pup)
+			_puppets[id] = pup
+		pup.net_apply(e)
+	for id in _puppets.keys():
+		if not seen.has(id):
+			var gone_pup: Node2D = _puppets[id]
+			_puppets.erase(id)
+			if is_instance_valid(gone_pup):
+				gone_pup.net_die()
+	seen.clear()
+	for d in s.get("d", []):
+		var did: String = d[0]
+		seen[did] = true
+		if not is_instance_valid(_drops.get(did)):
+			var pk: Node2D = PICKUP_SCN.instantiate()
+			pk.kind = d[1]
+			pk.position = d[2]
+			level.entities.add_child(pk)
+			_drops[did] = pk
+	for did in _drops.keys():
+		if not seen.has(did):
+			if is_instance_valid(_drops[did]):
+				_drops[did].queue_free()
+			_drops.erase(did)
+	var b := int(s.get("b", 0))
+	if b != Game.bars:
+		Game.bars = b
+		Game.bars_changed.emit(b)
+	Game.dialog_lock = bool(s.get("l", false))
+
+
+## Client: a host shot, only to look at (the host's bullet does the damage).
+func client_spawn_shot(pos: Vector2, dir: Vector2) -> void:
+	if level == null:
+		return
+	var b := BULLET_SCN.instantiate()
+	b.visual = true
+	b.direction = dir
+	b.global_position = pos
+	level.entities.add_child(b)
+	Sfx.play("shoot")

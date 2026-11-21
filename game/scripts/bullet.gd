@@ -4,6 +4,8 @@ extends Area2D
 const SPEED := 340.0
 
 var direction := Vector2.RIGHT
+## Online client: the host's shot, only to look at (stops on walls, hurts nobody).
+var visual := false
 var _life := 0.8
 var _done := false
 
@@ -27,7 +29,10 @@ func _physics_process(delta: float) -> void:
 func _on_hit(body: Node) -> void:
 	if _done or body == null or body.is_in_group("player"):
 		return
-	if body.is_in_group("enemies"):
+	if visual:
+		if body.is_in_group("bushes"):
+			return
+	elif body.is_in_group("enemies"):
 		body.take_damage(1, direction * 90.0)
 		Sfx.play("hit")
 	elif body.is_in_group("bushes"):

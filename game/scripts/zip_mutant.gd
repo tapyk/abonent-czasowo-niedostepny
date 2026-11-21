@@ -58,8 +58,8 @@ func _physics_process(delta: float) -> void:
 	# Same height as the rider's feet, so melee and bites line up.
 	position = line.cable_point(u) + Vector2(0, line.HANG - 4)
 	_sprite.rotation = sin(_t * 5.0) * 0.12
-	var p := Game.player
-	if line.rider != null and gap < 15.0 and _cd <= 0.0 and is_instance_valid(p):
+	var p: Node2D = line.rider
+	if p != null and gap < 15.0 and _cd <= 0.0 and is_instance_valid(p):
 		_cd = BITE_CD
 		p.take_damage(DAMAGE, global_position)
 		line.push_back(26.0)

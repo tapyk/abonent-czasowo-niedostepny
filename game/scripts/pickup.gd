@@ -43,19 +43,24 @@ func interact(_player: Node) -> void:
 	Game.stats_changed.emit()
 	Sfx.play("pickup")
 	Game.say_line("Johnny", "Kabel serwisowy. Wybacz, kolego.", false, true)
-	Game.say_line("Mama", "Podłącz się do panelu. Będzie głośno.", true)
-	Game.say_line("Johnny", "Jak głośno?")
-	Game.say_line("Mama", "Bardzo.", true)
+	if Game.is_hard():
+		Game.add_clue("a1_tech", "a1", "PIN technika: 407? (ostatnia cyfra = piętro zgłoszenia)")
+		Game.say_line("Johnny", "Identyfikator technika. PIN 407… ostatnia cyfra zatarta. Dopisek: „piętro zgłoszenia”.")
+		Game.say_line("Mama", "Panel chce też pasmo. Baza plus odchyłka, zawsze. Poszukaj tabliczki na maszcie.", true)
+	else:
+		Game.say_line("Mama", "Podłącz się do panelu. Będzie głośno.", true)
+		Game.say_line("Johnny", "Jak głośno?")
+		Game.say_line("Mama", "Bardzo.", true)
 
 
 func _on_body_entered(body: Node) -> void:
-	if _taken or not body.is_in_group("player"):
+	if _taken or not body.is_in_group("player") or body.dead:
 		return
 	match kind:
 		"ammo":
-			Game.add_ammo(5)
+			Game.add_ammo(8 if Game.coop else 5)
 		"ammo_small":
-			Game.add_ammo(3)
+			Game.add_ammo(5 if Game.coop else 3)
 		"medkit":
 			if body.hp >= body.MAX_HP:
 				return
@@ -64,7 +69,7 @@ func _on_body_entered(body: Node) -> void:
 			Game.add_part()
 		"pistol":
 			Game.has_pistol = true
-			Game.add_ammo(Game.START_AMMO)
+			Game.add_ammo(20 if Game.coop else Game.START_AMMO)
 			Game.show_hint("LPM / J: strzał w kursor   PPM / K: cios")
 			Game.say_line("Johnny", "Pistolet taty. Oby się nie przydał.", false, true)
 		"sekator":

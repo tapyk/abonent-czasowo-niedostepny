@@ -31,7 +31,7 @@ func _ready() -> void:
 
 
 func open(a: Node, p: Node) -> void:
-	if a.minigame != "maze":
+	if Game.is_hard() or a.minigame != "maze":
 		return
 	antenna = a
 	player = p
@@ -62,10 +62,11 @@ func _process(delta: float) -> void:
 	if not is_instance_valid(player) or player.dead:
 		close()
 		return
-	if _open_t <= 0.0 and (Input.is_action_just_pressed("interact") or Input.is_action_just_pressed("back")):
+	if _open_t <= 0.0 and (Input.is_action_just_pressed(Game.action_for(player, "interact")) or Input.is_action_just_pressed("back")):
 		close()
 		return
-	var v := Input.get_vector("move_left", "move_right", "move_up", "move_down")
+	var v := Input.get_vector(Game.action_for(player, "move_left"), Game.action_for(player, "move_right"),
+		Game.action_for(player, "move_up"), Game.action_for(player, "move_down"))
 	if v != Vector2.ZERO:
 		var next := dot + v * SPEED * delta
 		if _hits_wall(next):
