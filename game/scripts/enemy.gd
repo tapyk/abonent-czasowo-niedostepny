@@ -199,15 +199,19 @@ func _die() -> void:
 
 
 func _drop_loot() -> void:
-	var pickup: Node2D = preload("res://scenes/pickup.tscn").instantiate()
+	# burnt: a part (on hard also rounds); normal: often rounds, almost always on hard
 	if burnt:
-		pickup.kind = "part"
-	elif randf() < 0.65:
-		pickup.kind = "ammo_small"
-	else:
-		pickup.free()
-		return
-	pickup.position = position + Vector2(0, -4)
+		_drop("part", Vector2(0, -4))
+		if Game.is_hard():
+			_drop("ammo_small", Vector2(8, -2))
+	elif randf() < (0.95 if Game.is_hard() else 0.8):
+		_drop("ammo_small", Vector2(0, -4))
+
+
+func _drop(kind: String, offset: Vector2) -> void:
+	var pickup: Node2D = preload("res://scenes/pickup.tscn").instantiate()
+	pickup.kind = kind
+	pickup.position = position + offset
 	get_parent().call_deferred("add_child", pickup)
 
 

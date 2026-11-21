@@ -11,6 +11,10 @@ const INTERIORS := ["home", "stodola", "mama_dom"]
 const PARTS_NEEDED := 3
 ## Where the damaged jet comes down on the estate after antenna 1.
 const WRECK_CELL := Vector2i(46, 37)
+const ENEMY_SCN := preload("res://scenes/enemy.tscn")
+## Mutants that jump out of the wreck when it lands: [cell offset from WRECK_CELL, burnt].
+const WRECK_MUTANTS := [[Vector2i(-3, 1), false], [Vector2i(3, 1), true], [Vector2i(0, 2), false],
+	[Vector2i(-4, -1), false], [Vector2i(4, -1), true]]
 
 @onready var world: Node2D = $World
 @onready var player: CharacterBody2D = $Player
@@ -349,7 +353,7 @@ func on_npc(id: String) -> void:
 
 # --- the damaged jet -----------------------------------------------------------
 
-## After antenna 1: a damaged jet falls onto the estate (once), then stays as a wreck.
+## After antenna 1.
 func _plane_crash() -> void:
 	Game.flags["plane_crashed"] = true
 	if Game._saved.has("flags"):
@@ -357,6 +361,7 @@ func _plane_crash() -> void:
 	await get_tree().create_timer(1.2).timeout
 	if Game.current_map != "world":
 		return
+	Net.send_wreck_fall()
 	_spawn_wreck(true)
 
 
@@ -397,6 +402,7 @@ func _spawn_wreck(falling: bool) -> void:
 	flicker.tween_property(fire, "energy", 0.6, 0.15)
 	flicker.tween_property(fire, "energy", 1.0, 0.2)
 	if not falling:
+		_mark_plane_down()
 		return
 	# comes in from the upper left, nose down, its shadow growing on the ground
 	s.position = rest + Vector2(-240, -200)
@@ -414,9 +420,48 @@ func _spawn_wreck(falling: bool) -> void:
 	body.process_mode = Node.PROCESS_MODE_INHERIT
 	Sfx.play("explosion", 0.0, 2.0)
 	player.shake(4.0)
+	if Net.is_client():
+		return  # the host spawns the mutants and says the lines
+	_mark_plane_down()
+	_wreck_mutants(n.position)
 	Game.say_line("Johnny", "…Samolot spadł.")
 	Game.say_line("Mama", "Johnny? Co tak huknęło?", true)
 	Game.say_line("Johnny", "Samolot. Ja jestem cały.")
+
+
+## The jet lies on the estate now (the online client draws it as a wreck from then on).
+func _mark_plane_down() -> void:
+	Game.flags["plane_down"] = true
+	if Game._saved.has("flags"):
+		Game._saved.flags["plane_down"] = true
+
+
+## Mutants jump out of the crashed jet and come at Johnny (more in co-op, more burnt on hard).
+func _wreck_mutants(at: Vector2) -> void:
+	var count := WRECK_MUTANTS.size() if Game.coop else 3
+	for i in count:
+		var c: Vector2i = level.nearest_walkable(WRECK_CELL + WRECK_MUTANTS[i][0])
+		if c.x < 0:
+			continue
+		var e: CharacterBody2D = ENEMY_SCN.instantiate()
+		e.burnt = WRECK_MUTANTS[i][1] or (Game.is_hard() and i == 0)
+		e.position = at + Vector2(randf_range(-10, 10), -12)
+		level.entities.add_child(e)
+		e.set_physics_process(false)
+		var land: Vector2 = level.feet(c.x, c.y)
+		var from := e.position
+		var top := (from + land) / 2.0 + Vector2(0, -26)
+		var tw := e.create_tween()
+		tw.tween_interval(0.15 * i)
+		# a hop in an arc: out of the fuselage, up, down onto the ground
+		tw.tween_method(func(k: float) -> void:
+			e.position = from.lerp(top, k).lerp(top.lerp(land, k), k), 0.0, 1.0, 0.5)
+		tw.tween_callback(func() -> void:
+			e.home = land
+			e.set_physics_process(true)
+			e.alert())
+	get_tree().create_timer(0.6).timeout.connect(func():
+		Game.say_line("Johnny", "Z samolotu wyłażą mutanci!", false, true))
 
 
 ## Esc menu save / autosave. Not while riding, sailing or switching maps.
@@ -674,7 +719,10 @@ func net_snapshot() -> Dictionary:
 		for n in level.entities.get_children():
 			if n is Area2D and "kind" in n and not n.has_meta("key"):
 				ds.append([Net.net_id(n), n.kind, n.global_position])
-	return {"r": Net.map_rev, "p": ps, "e": es, "d": ds, "b": Game.bars, "l": Game.dialog_lock}
+	var boats := []  # the boat moves during the crossing
+	for bt in get_tree().get_nodes_in_group("boats"):
+		boats.append([str(bt.get_meta("key", "")), bt.global_position])
+	return {"r": Net.map_rev, "p": ps, "e": es, "d": ds, "m": boats, "b": Game.bars, "l": Game.dialog_lock}
 
 
 ## Client: main.tscn just opened with the host's first state.
@@ -696,7 +744,7 @@ func _client_map_built() -> void:
 		e.queue_free()
 	_puppets.clear()
 	_drops.clear()
-	if Game.current_map == "world" and Game.flags.has("plane_crashed"):
+	if Game.current_map == "world" and Game.flags.has("plane_down"):
 		_spawn_wreck(false)
 
 
@@ -705,7 +753,6 @@ func client_apply_state(st: Dictionary) -> void:
 		return
 	var old_gone := Game.gone.duplicate()
 	var old_off := Game.disabled_ids.duplicate()
-	var had_wreck := Game.flags.has("plane_crashed")
 	Game.apply_net_state(st)
 	var rev := int(st.get("rev", 0))
 	if rev != _net_rev:
@@ -726,8 +773,18 @@ func client_apply_state(st: Dictionary) -> void:
 			a._set_off()
 			Sfx.play("shutdown")
 			create_tween().tween_property(darkness, "color", level.darkness.lerp(BRIGHT_AFTER, _brightness()), 3.0)
-	if not had_wreck and Game.flags.has("plane_crashed") and Game.current_map == "world":
-		_spawn_wreck(true)
+	if Game.flags.has("plane_down") and Game.current_map == "world" and level.entities.get_node_or_null("Wreck") == null:
+		_spawn_wreck(false)  # missed the fall (joined late): just the wreck
+
+
+## Client: the host's jet is falling right now.
+func client_wreck_fall() -> void:
+	if Game.current_map != "world" or level == null:
+		return
+	var old: Node = level.entities.get_node_or_null("Wreck")
+	if old != null:
+		old.free()
+	_spawn_wreck(true)
 
 
 func client_apply_snap(s: Dictionary) -> void:
@@ -771,6 +828,10 @@ func client_apply_snap(s: Dictionary) -> void:
 			if is_instance_valid(_drops[did]):
 				_drops[did].queue_free()
 			_drops.erase(did)
+	for bm in s.get("m", []):
+		for bt in get_tree().get_nodes_in_group("boats"):
+			if str(bt.get_meta("key", "")) == bm[0]:
+				bt.global_position = bt.global_position.lerp(bm[1], 0.5) 					if bt.global_position.distance_to(bm[1]) < 64.0 else bm[1]
 	var b := int(s.get("b", 0))
 	if b != Game.bars:
 		Game.bars = b

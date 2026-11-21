@@ -141,7 +141,8 @@ func _autotest() -> void:
 	_check("pistol lies at home", pistol != null)
 	p.global_position = pistol.global_position
 	await _frames(3)
-	_check("pistol picked up, 14 rounds", Game.has_pistol and Game.ammo == 14, str(Game.ammo))
+	var start_ammo := Game.ammo_amount(Game.START_AMMO)
+	_check("pistol picked up, %d rounds" % start_ammo, Game.has_pistol and Game.ammo == start_ammo, str(Game.ammo))
 	if p.sprite.sprite_frames.has_animation("gun_flat_idle"):
 		_check("Johnny holds the pistol (gun_* pose)", String(p.sprite.animation).begins_with("gun_"), p.sprite.animation)
 		p.shoot(Vector2.RIGHT)
@@ -192,7 +193,7 @@ func _autotest() -> void:
 		p._fire_cd = 0.0
 		p.shoot()
 		await _wait(0.2)
-	_check("pistol uses ammo", Game.ammo == 11, str(Game.ammo))
+	_check("pistol uses ammo", Game.ammo == start_ammo - 3, str(Game.ammo))
 	p._fire_cd = 0.0
 	var aim := Vector2(1, -1).normalized()
 	p.shoot(aim)

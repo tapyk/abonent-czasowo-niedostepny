@@ -8,8 +8,9 @@ const BULLET := preload("res://scenes/bullet.tscn")
 
 const SPEED := 72.0
 const FIRE_COOLDOWN := 0.3
-const MELEE_COOLDOWN := 0.45
-const MELEE_RANGE := 20.0
+const MELEE_COOLDOWN := 0.35
+const MELEE_RANGE := 30.0
+const MELEE_ARC := -0.2     # dot with the swing direction: a bit more than a half circle
 const MAX_HP := 100
 const INVULN := 0.9
 const BUSH_SLOW := 0.55
@@ -288,14 +289,27 @@ func melee(dir := Vector2.ZERO) -> void:
 		return
 	_melee_cd = MELEE_COOLDOWN
 	_melee_anim = 0.2
-	_melee_dir = dir
 	Sfx.play("melee")
-	var hit := false
+	# Wide swing in front; nothing there but a mutant in reach -> turn to it and hit it.
+	var in_reach: Array[Node] = []
+	var nearest: Node = null
 	for e in get_tree().get_nodes_in_group("enemies"):
 		var d: Vector2 = e.global_position - global_position
-		if d.length() <= MELEE_RANGE and (d.length() < 6.0 or d.normalized().dot(dir) > 0.3):
-			e.take_damage(1, dir * 150.0)
-			hit = true
+		if d.length() > MELEE_RANGE:
+			continue
+		if d.length() < 8.0 or d.normalized().dot(dir) > MELEE_ARC:
+			in_reach.append(e)
+		if nearest == null or d.length() < (nearest.global_position - global_position).length():
+			nearest = e
+	if in_reach.is_empty() and nearest != null:
+		dir = (nearest.global_position - global_position).normalized()
+		in_reach.append(nearest)
+		if not riding:
+			facing = Vector2(signf(dir.x), 0) if absf(dir.x) > absf(dir.y) else Vector2(0, signf(dir.y))
+	_melee_dir = dir
+	var hit := not in_reach.is_empty()
+	for e in in_reach:
+		e.take_damage(1, dir * 170.0)
 	if hit:
 		Sfx.play("hit")
 	Game.make_noise(global_position, 60.0)

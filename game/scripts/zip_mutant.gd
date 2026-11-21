@@ -52,17 +52,17 @@ func _physics_process(delta: float) -> void:
 	_t += delta
 	_cd -= delta
 	var span: float = maxf(line.length(), 1.0)
-	var gap: float = (u - line.t) * span
-	if line.rider != null and gap > 12.0:
-		u = maxf(u - SPEED * delta / span, line.t)
+	var front: Dictionary = line.front_rider()  # the rider closest to it
+	var gap: float = (u - front.t) * span if not front.is_empty() else INF
+	if not front.is_empty() and gap > 12.0:
+		u = maxf(u - SPEED * delta / span, front.t)
 	# Same height as the rider's feet, so melee and bites line up.
 	position = line.cable_point(u) + Vector2(0, line.HANG - 4)
 	_sprite.rotation = sin(_t * 5.0) * 0.12
-	var p: Node2D = line.rider
-	if p != null and gap < 15.0 and _cd <= 0.0 and is_instance_valid(p):
+	if not front.is_empty() and gap < 15.0 and _cd <= 0.0 and is_instance_valid(front.node):
 		_cd = BITE_CD
-		p.take_damage(DAMAGE, global_position)
-		line.push_back(26.0)
+		front.node.take_damage(DAMAGE, global_position)
+		line.push_back(26.0, front)
 	queue_redraw()
 
 

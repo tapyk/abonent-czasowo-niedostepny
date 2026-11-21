@@ -386,6 +386,11 @@ func make_noise(at: Vector2, radius: float) -> void:
 			e.alert()
 
 
+## Rounds a pickup gives on this difficulty.
+func ammo_amount(base: int) -> int:
+	return ceili(base * (2.2 if is_hard() else 1.3))
+
+
 func add_ammo(n: int) -> void:
 	ammo += n
 	stats_changed.emit()

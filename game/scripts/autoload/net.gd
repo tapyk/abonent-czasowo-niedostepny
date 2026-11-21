@@ -222,6 +222,17 @@ func send_shot(pos: Vector2, dir: Vector2) -> void:
 		_rpc_shot.rpc(pos, dir)
 
 
+## Host: both players watch the intro; the host's ends it for both (its first state).
+func send_intro() -> void:
+	if is_host() and _has_peer():
+		_rpc_intro.rpc()
+
+
+func send_wreck_fall() -> void:
+	if is_host() and _has_peer():
+		_rpc_wreck_fall.rpc()
+
+
 func send_ending() -> void:
 	if is_host() and _has_peer():
 		_rpc_ending.rpc()
@@ -292,6 +303,20 @@ func _rpc_shot(pos: Vector2, dir: Vector2) -> void:
 	var story := _story()
 	if story != null:
 		story.client_spawn_shot(pos, dir)
+
+
+@rpc("authority", "call_remote", "reliable")
+func _rpc_intro() -> void:
+	if _story() == null and pending_state.is_empty():
+		_set_status("Start!")
+		get_tree().change_scene_to_file("res://scenes/intro.tscn")
+
+
+@rpc("authority", "call_remote", "reliable")
+func _rpc_wreck_fall() -> void:
+	var story := _story()
+	if story != null:
+		story.client_wreck_fall()
 
 
 @rpc("authority", "call_remote", "reliable")

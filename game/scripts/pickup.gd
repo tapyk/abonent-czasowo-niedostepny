@@ -58,9 +58,9 @@ func _on_body_entered(body: Node) -> void:
 		return
 	match kind:
 		"ammo":
-			Game.add_ammo(8 if Game.coop else 5)
+			Game.add_ammo(Game.ammo_amount(8 if Game.coop else 5))
 		"ammo_small":
-			Game.add_ammo(5 if Game.coop else 3)
+			Game.add_ammo(Game.ammo_amount(5 if Game.coop else 3))
 		"medkit":
 			if body.hp >= body.MAX_HP:
 				return
@@ -69,7 +69,7 @@ func _on_body_entered(body: Node) -> void:
 			Game.add_part()
 		"pistol":
 			Game.has_pistol = true
-			Game.add_ammo(20 if Game.coop else Game.START_AMMO)
+			Game.add_ammo(Game.ammo_amount(20 if Game.coop else Game.START_AMMO))
 			Game.show_hint("LPM / J: strzał w kursor   PPM / K: cios")
 			Game.say_line("Johnny", "Pistolet taty. Oby się nie przydał.", false, true)
 		"sekator":

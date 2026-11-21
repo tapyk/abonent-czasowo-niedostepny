@@ -42,7 +42,7 @@ func _physics_process(delta: float) -> void:
 		_client_step(story)
 
 
-func _host_step(_story_node: Node) -> void:
+func _host_step(story: Node) -> void:
 	if _p2_start == Vector2.INF:
 		_p2_start = Game.player2.global_position
 	if Game.error_boost > 0.0:
@@ -62,8 +62,9 @@ func _host_step(_story_node: Node) -> void:
 		_ok("client's hack error raised the bars boost", _err_seen)
 		_ok("client's finished hack switched antenna a1 off here", Game.is_antenna_off("a1"))
 		_ok("P2 is not left hacking", not Game.player2.hacking)
+		story._plane_crash()  # the jet falls on both screens
 		# stay up a bit so the client can finish its checks before the server goes away
-		get_tree().create_timer(4.0, true, false, true).timeout.connect(_finish)
+		get_tree().create_timer(9.0, true, false, true).timeout.connect(_finish)
 
 
 func _client_step(story: Node) -> void:
@@ -95,4 +96,14 @@ func _client_step(story: Node) -> void:
 		_ok("host shot seen on the client", _shots_seen > 0)
 		_ok("antenna a1 off came back from the host", Game.is_antenna_off("a1"))
 		_ok("bars come from the host", Game.bars >= 0)
+	if _phase == 4 and story.level.entities.get_node_or_null("Wreck") != null:
+		_phase = 5
+		var s: Sprite2D = null
+		for c in story.level.entities.get_node("Wreck").get_children():
+			if c is Sprite2D:
+				s = c
+		_ok("the jet falls on the client too (animated)", s != null and s.position.y < -100.0, str(s.position if s else null))
+	if _phase == 5 and _t > 13.5:
+		_phase = 6
+		_ok("the jet is down on the client", Game.flags.has("plane_down"))
 		_finish()

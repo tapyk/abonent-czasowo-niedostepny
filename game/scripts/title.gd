@@ -184,7 +184,11 @@ func _on_peer_joined() -> void:
 	Game.coop = true
 	_loading = true
 	Sfx.set_static(0.0)
-	get_tree().change_scene_to_file("res://scenes/main.tscn")
+	if Game.dev.has("nettest") or Game.dev.has("autostart"):
+		get_tree().change_scene_to_file("res://scenes/main.tscn")
+		return
+	Net.send_intro()  # both watch it; the host's end starts the game for both
+	get_tree().change_scene_to_file("res://scenes/intro.tscn")
 
 
 func _load_save() -> void:

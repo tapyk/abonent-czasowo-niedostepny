@@ -20,6 +20,7 @@ var _boomed := false
 var _rang := false
 var _messaged := false
 var _radioed := false
+var _waiting := false
 var _rng := RandomNumberGenerator.new()
 var _buildings: Array = []            # [x, w, h] (tower pictures scaled to w x h)
 var _tower: Texture2D
@@ -116,6 +117,12 @@ func _finish() -> void:
 	set_process(false)
 	Sfx.set_static(0.0)
 	Sfx.stop_all()
+	if Net.is_client() and Net.pending_state.is_empty():
+		# Online Player 2 skipped ahead: the game starts when the host's intro ends
+		# (its first state switches to main.tscn, net.gd).
+		_waiting = true
+		queue_redraw()
+		return
 	get_tree().change_scene_to_file("res://scenes/main.tscn")
 
 
@@ -127,6 +134,10 @@ func _wave_radius() -> float:
 func _draw() -> void:
 	var f := Art.font()
 	var fs := Art.FONT_SIZE
+	if _waiting:
+		draw_rect(Rect2(0, 0, W, H), Color.BLACK)
+		draw_string(f, Vector2(0, H / 2.0), "Czekam, aż host skończy intro…", HORIZONTAL_ALIGNMENT_CENTER, W, fs, Color("9fd8ff"))
+		return
 	if _t >= T_RADIO:
 		_draw_radio(f, fs)
 		return

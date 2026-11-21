@@ -7,7 +7,7 @@ var _failed := 0
 func _ready() -> void:
 	Game.dev["mute"] = true
 	Game.dev["savefile"] = "save_test_modes.json"  # never touch the player's save
-	get_tree().create_timer(12.0, true, false, true).timeout.connect(func():
+	get_tree().create_timer(30.0, true, false, true).timeout.connect(func():
 		printerr("WATCHDOG_QUIT")
 		get_tree().quit(2)
 	)
@@ -110,11 +110,68 @@ func _run_all() -> void:
 	m_coop_hard.free()
 	await _frames(2)
 
+	await _test_coop_zipline_and_wreck(main_scn)
+	_test_ammo_amounts()
+
 	# 3. Full Hard-Mode Clues & All 3 Multi-Stage Antenna Puzzles
 	await _test_hard_antennas_and_clues(main_scn)
 
 	print("=== EXTENDED MODES TEST DONE: %d failed ===" % _failed)
 	get_tree().quit(1 if _failed > 0 else 0)
+
+
+func _test_coop_zipline_and_wreck(main_scn: PackedScene) -> void:
+	Game.coop = true
+	Game.difficulty = "normal"
+	Game.dev["god"] = true
+	var m := main_scn.instantiate()
+	add_child(m)
+	await _frames(2)
+	# zipline: both players hang on it at once and both get across
+	Game.flags["zip_boss_dead"] = true
+	m.load_map("szczelina")
+	await _frames(2)
+	var zip: Node = get_tree().get_nodes_in_group("ziplines")[0]
+	Game.player.global_position = zip.global_position + Vector2(-4, 4)
+	Game.player2.global_position = zip.global_position + Vector2(4, 4)
+	zip.interact(Game.player)
+	_ok("zipline still free for the second player", zip.can_interact())
+	zip.interact(Game.player2)
+	_ok("two riders on the zipline at once", zip.riders.size() == 2 and Game.player.riding and Game.player2.riding)
+	var far: Vector2 = zip.to_global(zip.end_pos - zip.position)
+	var waited := 0.0
+	while not zip.riders.is_empty() and waited < 9.0:
+		await get_tree().create_timer(0.25).timeout
+		waited += 0.25
+	_ok("both riders arrive at the far post",
+		Game.player.global_position.distance_to(far) < 40.0 and Game.player2.global_position.distance_to(far) < 40.0
+		and not Game.player.riding and not Game.player2.riding, "%.0f / %.0f px" % [Game.player.global_position.distance_to(far), Game.player2.global_position.distance_to(far)])
+	# crashed jet: mutants jump out
+	Game.disabled_ids.append("a1")
+	Game.flags.erase("plane_crashed")
+	Game.flags.erase("plane_down")
+	m.load_map("world")
+	var wreck_at: Vector2 = m.level.feet(m.WRECK_CELL.x, m.WRECK_CELL.y)
+	var near_before := _enemies_near(wreck_at, 90.0)
+	await get_tree().create_timer(3.8).timeout
+	_ok("mutants jump out of the crashed jet", _enemies_near(wreck_at, 90.0) >= near_before + 3,
+		"%d -> %d" % [near_before, _enemies_near(wreck_at, 90.0)])
+	_ok("the jet counts as down after the fall", Game.flags.has("plane_down"))
+	Game.dev.erase("god")
+	m.free()
+	await _frames(2)
+
+
+func _enemies_near(at: Vector2, r: float) -> int:
+	return get_tree().get_nodes_in_group("enemies").filter(func(e): return e.global_position.distance_to(at) < r).size()
+
+
+func _test_ammo_amounts() -> void:
+	Game.difficulty = "normal"
+	var normal := Game.ammo_amount(5)
+	Game.difficulty = "hard"
+	var hard := Game.ammo_amount(5)
+	_ok("ammo pack: a bit more on normal, much more on hard", normal > 5 and hard >= 2 * 5, "%d / %d" % [normal, hard])
 
 
 func _test_hard_antennas_and_clues(main_scn: PackedScene) -> void:
