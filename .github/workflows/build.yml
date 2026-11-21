@@ -1,0 +1,154 @@
+name: Build
+
+on:
+  push:
+    branches: ["**"]
+    tags: ["v*"]
+  workflow_dispatch:
+
+concurrency:
+  group: build-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  GODOT_VERSION: "4.7.2"
+  GODOT_RELEASE: "stable"
+  PROJECT_DIR: game
+  EXE_NAME: AbonentNiedostepny
+
+jobs:
+  export:
+    name: ${{ matrix.preset }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - preset: Windows
+            dir: windows
+            file: AbonentNiedostepny.exe
+          - preset: Linux
+            dir: linux
+            file: AbonentNiedostepny.x86_64
+          - preset: macOS
+            dir: macos
+            file: AbonentNiedostepny.zip
+          - preset: Android
+            dir: android
+            file: AbonentNiedostepny.apk
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Cache Godot + export templates
+        id: cache-godot
+        uses: actions/cache@v4
+        with:
+          path: ~/godot-dl
+          key: godot-${{ env.GODOT_VERSION }}-${{ env.GODOT_RELEASE }}
+
+      - name: Download Godot
+        if: steps.cache-godot.outputs.cache-hit != 'true'
+        run: |
+          set -euo pipefail
+          TAG="${GODOT_VERSION}-${GODOT_RELEASE}"
+          BASE="https://github.com/godotengine/godot/releases/download/${TAG}"
+          mkdir -p ~/godot-dl
+          curl -fL --retry 3 -o ~/godot-dl/godot.zip "${BASE}/Godot_v${TAG}_linux.x86_64.zip"
+          curl -fL --retry 3 -o ~/godot-dl/templates.tpz "${BASE}/Godot_v${TAG}_export_templates.tpz"
+
+      - name: Install Godot + export templates
+        run: |
+          set -euo pipefail
+          TAG="${GODOT_VERSION}-${GODOT_RELEASE}"
+          mkdir -p ~/godot-bin
+          unzip -q -o ~/godot-dl/godot.zip -d ~/godot-bin
+          mv ~/godot-bin/Godot_v${TAG}_linux.x86_64 ~/godot-bin/godot
+          chmod +x ~/godot-bin/godot
+          echo "$HOME/godot-bin" >> "$GITHUB_PATH"
+
+          TPL_DIR=~/.local/share/godot/export_templates/${GODOT_VERSION}.${GODOT_RELEASE}
+          mkdir -p "$TPL_DIR"
+          # Unpack only the templates this platform needs (the .tpz is ~1.3 GB).
+          case "${{ matrix.dir }}" in
+            windows) PATTERN='templates/windows_*_x86_64.exe' ;;
+            linux)   PATTERN='templates/linux_*.x86_64' ;;
+            macos)   PATTERN='templates/macos.zip' ;;
+            android) PATTERN='templates/android_*.apk' ;;
+          esac
+          unzip -q -o -j ~/godot-dl/templates.tpz 'templates/version.txt' "$PATTERN" -d "$TPL_DIR"
+          ls -la "$TPL_DIR"
+
+      - name: Set up Java (Android)
+        if: matrix.dir == 'android'
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Configure Android SDK + keystore
+        if: matrix.dir == 'android'
+        env:
+          ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          ANDROID_KEYSTORE_USER: ${{ secrets.ANDROID_KEYSTORE_USER }}
+          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+        run: |
+          set -euo pipefail
+          KS_DIR=~/keystores
+          mkdir -p "$KS_DIR"
+          keytool -genkeypair -v -keystore "$KS_DIR/debug.keystore" \
+            -storepass android -keypass android -alias androiddebugkey \
+            -dname "CN=Android Debug,O=Android,C=US" \
+            -keyalg RSA -keysize 2048 -validity 10000
+
+          mkdir -p ~/.config/godot
+          cat > ~/.config/godot/editor_settings-${GODOT_VERSION%.*}.tres <<EOF
+          [gd_resource type="EditorSettings" format=3]
+
+          [resource]
+          export/android/android_sdk_path = "${ANDROID_HOME}"
+          export/android/java_sdk_path = "${JAVA_HOME}"
+          export/android/debug_keystore = "$KS_DIR/debug.keystore"
+          export/android/debug_keystore_user = "androiddebugkey"
+          export/android/debug_keystore_pass = "android"
+          EOF
+
+          {
+            echo "GODOT_ANDROID_KEYSTORE_DEBUG_PATH=$KS_DIR/debug.keystore"
+            echo "GODOT_ANDROID_KEYSTORE_DEBUG_USER=androiddebugkey"
+            echo "GODOT_ANDROID_KEYSTORE_DEBUG_PASSWORD=android"
+          } >> "$GITHUB_ENV"
+
+          # Optional release signing: set the ANDROID_KEYSTORE_* repo secrets
+          # to get a release APK; otherwise a debug-signed APK is built.
+          if [ -n "${ANDROID_KEYSTORE_BASE64:-}" ]; then
+            echo "$ANDROID_KEYSTORE_BASE64" | base64 -d > "$KS_DIR/release.keystore"
+            {
+              echo "GODOT_ANDROID_KEYSTORE_RELEASE_PATH=$KS_DIR/release.keystore"
+              echo "GODOT_ANDROID_KEYSTORE_RELEASE_USER=$ANDROID_KEYSTORE_USER"
+              echo "GODOT_ANDROID_KEYSTORE_RELEASE_PASSWORD=$ANDROID_KEYSTORE_PASSWORD"
+              echo "EXPORT_MODE=release"
+            } >> "$GITHUB_ENV"
+          else
+            echo "EXPORT_MODE=debug" >> "$GITHUB_ENV"
+          fi
+
+      - name: Import project
+        run: godot --headless --path "$PROJECT_DIR" --import
+
+      - name: Export ${{ matrix.preset }}
+        run: |
+          set -euo pipefail
+          OUT="export/${{ matrix.dir }}/${{ matrix.file }}"
+          mkdir -p "$(dirname "$OUT")"
+          MODE="${EXPORT_MODE:-release}"
+          godot --headless --path "$PROJECT_DIR" --export-$MODE "${{ matrix.preset }}" "../$OUT"
+          test -s "$OUT" || { echo "::error::Export produced no file at $OUT"; exit 1; }
+          ls -la "export/${{ matrix.dir }}"
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ env.EXE_NAME }}-${{ matrix.dir }}
+          path: export/${{ matrix.dir }}/
+          if-no-files-found: error
