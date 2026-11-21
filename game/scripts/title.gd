@@ -99,8 +99,12 @@ func _process(delta: float) -> void:
 func _input(event: InputEvent) -> void:
 	if _loading or not (event is InputEventMouse):
 		return
-	var row := _row_at(make_input_local(event).position)
+	var at: Vector2 = make_input_local(event).position
+	var row := _row_at(at)
 	if row < 0:
+		return
+	if _ip.visible and _ip.get_rect().has_point(at):
+		_sel = row  # a click in the IP field only edits it (the field takes focus), no joining
 		return
 	if event is InputEventMouseMotion and row != _sel:
 		_sel = row
@@ -147,10 +151,7 @@ func _confirm(row: String) -> void:
 			if not Net.is_host():
 				Net.host_game()
 		"join":
-			if _ip.has_focus() or not Touch.active or Net.is_client():
-				_join()
-			else:
-				_ip.grab_focus()  # phone: first tap opens the keyboard
+			_join()  # the field itself only edits the address (see _input)
 		"back":
 			Net.leave()
 			Net.status = ""
