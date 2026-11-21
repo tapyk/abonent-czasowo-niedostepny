@@ -12,6 +12,8 @@ var mode := "auto"
 var aiming := false
 ## Viewport coordinates (320x180) of the aiming finger.
 var aim_pos := Vector2.ZERO
+## Where the stick last pointed (unit vector, ZERO before the first push).
+var look_dir := Vector2.ZERO
 
 var _stick_finger := -1
 var _stick_origin := STICK_HOME
@@ -166,6 +168,8 @@ func _finger_move(i: int, pos: Vector2) -> void:
 			_stick_origin = pos - d.limit_length(STICK_R)  # the stick follows a long drag
 			d = pos - _stick_origin
 		_stick_vec = d / STICK_R
+		if _stick_vec.length() > DEAD:
+			look_dir = _stick_vec.normalized()
 		_apply_stick()
 		_layer.queue_redraw()
 	elif i == _aim_finger:

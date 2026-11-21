@@ -350,7 +350,7 @@ func _send_client_input() -> void:
 	var aim_at: Vector2 = Touch.aim_world(story) if Touch.active else story.get_global_mouse_position()
 	var aim := (aim_at - origin).normalized() if aim_at.distance_to(origin) > 2.0 else Vector2.ZERO
 	if Touch.active and not Touch.aiming:
-		aim = Vector2.ZERO  # no finger on the aim side: the host keeps P2's facing
+		aim = Touch.look_dir  # no finger on the aim side: the flashlight follows the stick
 	var aiming := Touch.aiming if Touch.active else Input.is_mouse_button_pressed(MOUSE_BUTTON_LEFT)
 	_rpc_input.rpc_id(1, move, aim, aiming)
 	if busy:

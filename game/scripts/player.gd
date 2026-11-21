@@ -221,12 +221,15 @@ func _held_aim(button: MouseButton) -> Vector2:
 	return d.normalized() if d.length() >= 2.0 else Vector2.ZERO
 
 
-## Where the flashlight looks when nothing is held: the cursor (or the online client's).
+## Where the flashlight looks when nothing is held.
 func _look_dir() -> Vector2:
 	if _remote():
 		return Net.p2_aim
-	if Game.is_shared_p2(self) or Touch.active:
+	if Game.is_shared_p2(self):
 		return _held_aim(MOUSE_BUTTON_LEFT)
+	if Touch.active:
+		var held := _held_aim(MOUSE_BUTTON_LEFT)
+		return held if held != Vector2.ZERO else Touch.look_dir
 	var d := get_global_mouse_position() - (global_position + Vector2(0, -6))
 	return d.normalized() if d.length() > 2.0 else Vector2.ZERO
 

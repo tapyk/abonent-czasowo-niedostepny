@@ -73,6 +73,20 @@ func _run() -> void:
 	await _frames(10)
 	_ok("letting go of the stick stops him", p.global_position.distance_to(stop_at) < 1.0)
 
+	# the flashlight turns with the stick, smoothly (not just 8 directions), and stays
+	# pointing there after the thumb lets go, like a mouse cursor
+	var stick_d := Vector2(15, -6)  # about -22 degrees: between two of the 8 directions
+	_touch(0, Vector2(40, 140), true)
+	_drag(0, Vector2(40, 140) + stick_d)
+	await _frames(20)
+	var light: Node2D = p.facing_node
+	var off := absf(angle_difference(light.rotation, stick_d.angle()))
+	_ok("the flashlight follows the stick's angle", off < 0.05, "%.2f rad off" % off)
+	_touch(0, Vector2(40, 140) + stick_d, false)
+	await _frames(20)
+	off = absf(angle_difference(light.rotation, stick_d.angle()))
+	_ok("the flashlight keeps that angle after letting go", off < 0.05, "%.2f rad off" % off)
+
 	# aim side: tap above-right of Johnny shoots there
 	Game.has_pistol = true
 	Game.ammo = 5
