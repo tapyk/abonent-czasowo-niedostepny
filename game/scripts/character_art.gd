@@ -11,28 +11,30 @@ const HD := "res://assets/sprites/characters/hd/"
 const HD_FRAME := 32
 
 
-static func player_frames() -> SpriteFrames:
-	if not _cache.has("player"):
-		var sf := _from_strip("johnny", 8.0)
+## Player frames by character: "johnny" (P1) or "bialawski" (P2, Adam Białawski).
+static func player_frames(who := "johnny") -> SpriteFrames:
+	var key := "player_" + who
+	if not _cache.has(key):
+		var sf := _from_strip(who, 8.0)
 		if sf:
-			# Lying (death): the drawing without the cap, turned on its side.
-			if Art.tex(HD + "johnny_dead.png"):
+			# Lying (death): the drawing turned on its side (Johnny's without the cap).
+			if Art.tex(HD + who + "_dead.png"):
 				sf.add_animation("dead_down")
 				sf.set_animation_loop("dead_down", false)
-				sf.add_frame("dead_down", Art.tex(HD + "johnny_dead.png"))
-			# Fists: the drawing without the pistol.
+				sf.add_frame("dead_down", Art.tex(HD + who + "_dead.png"))
+			# Fists: the idle drawing (Johnny's has no pistol in it).
 			sf.add_animation("punch_down")
 			sf.set_animation_loop("punch_down", false)
-			sf.add_frame("punch_down", _strip_frame(HD + "johnny_idle.png", 0))
+			sf.add_frame("punch_down", _strip_frame(HD + who + "_idle.png", 0))
 			# Pistol in hand: gun_<flat|up|down>_<idle|walk>, and the same with the
 			# muzzle flash (the *_2 drawings): gun_<pose>_fire_<idle|walk>.
 			for pose in ["flat", "up", "down"]:
-				_add_strip_anims(sf, "johnny_shoot_" + pose, "gun_%s_" % pose, 8.0, ["idle", "walk"], "")
-				_add_strip_anims(sf, "johnny_shoot_%s_fire" % pose, "gun_%s_fire_" % pose, 8.0, ["idle", "walk"], "")
-		else:
+				_add_strip_anims(sf, "%s_shoot_%s" % [who, pose], "gun_%s_" % pose, 8.0, ["idle", "walk"], "")
+				_add_strip_anims(sf, "%s_shoot_%s_fire" % [who, pose], "gun_%s_fire_" % pose, 8.0, ["idle", "walk"], "")
+		elif who == "johnny":
 			sf = _from_sheet(CH + "player_johnny.png", 8.0)
-		_cache["player"] = sf if sf else _placeholder(Color("c9a640"), Color("e0b48a"), Color("3a3a48"))
-	return _cache["player"]
+		_cache[key] = sf if sf else _placeholder(Color("c9a640"), Color("e0b48a"), Color("3a3a48"))
+	return _cache[key]
 
 
 static func enemy_frames(burnt: bool) -> SpriteFrames:

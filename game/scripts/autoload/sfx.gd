@@ -89,6 +89,7 @@ const VOICES := {
 	"Mama": ["triangle", 392.0, -13.0],
 	"Farmer": ["saw", 131.0, -19.0],
 	"Braun": ["pulse", 147.0, -19.0],
+	"Białawski": ["saw", 165.0, -18.0],
 	"Tablet": ["sine", 880.0, -16.0],
 	"Radio": ["pulse", 247.0, -18.0],
 }

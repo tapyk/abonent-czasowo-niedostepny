@@ -21,6 +21,7 @@ config/icon="res://icon.svg"
 Game="*res://scripts/autoload/game.gd"
 Sfx="*res://scripts/autoload/sfx.gd"
 Net="*res://scripts/autoload/net.gd"
+Settings="*res://scripts/autoload/settings.gd"
 Touch="*res://scripts/autoload/touch.gd"
 
 [display]

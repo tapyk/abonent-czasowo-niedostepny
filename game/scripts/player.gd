@@ -70,10 +70,9 @@ func _ready() -> void:
 	else:
 		Game.player2 = self
 		camera.enabled = false
-	sprite.sprite_frames = CharacterArt.player_frames()
+	# P2 is Adam Białawski: own drawings, bald (no aluminium cap: the waves bounce off)
+	sprite.sprite_frames = CharacterArt.player_frames("bialawski" if player_index == 2 else "johnny")
 	sprite.offset = sprite.sprite_frames.get_meta("offset", Vector2.ZERO)
-	if player_index == 2:
-		sprite.self_modulate = Color(0.76, 0.95, 1.16)
 	flash.texture = CharacterArt.muzzle_flash()
 	flash.material = Art.unshaded()
 	flash.visible = false
@@ -333,6 +332,8 @@ func take_damage(amount: int, from: Vector2) -> void:
 
 
 func shake(strength: float) -> void:
+	if not Settings.shake:
+		return
 	var tw := create_tween()
 	for i in 6:
 		tw.tween_property(camera, "offset", Vector2(randf_range(-1, 1), randf_range(-1, 1)) * strength, 0.03)
@@ -364,6 +365,8 @@ func _die() -> void:
 
 ## Killcam: the aluminium cap flies off Johnny's head and lands next to him.
 func drop_cap() -> void:
+	if player_index == 2:
+		return  # Białawski has no cap
 	var cap := CharacterArt.johnny_cap()
 	if cap.is_empty():
 		return

@@ -1,9 +1,10 @@
 """Builds the in-game character strips from the team's 64x64 drawings.
 
 Source: assets/source/johnny/*.png and assets/source/ludzie/*.png (64x64, drawn
-mostly in 2x2 pixel blocks). Output: assets/sprites/characters/hd/*.png.
+mostly in 2x2 pixel blocks; Adam Białawski's czarny_*.png are 128x128 in 4x4 blocks).
+Output: assets/sprites/characters/hd/*.png.
 
-Every drawing is halved to 32x32 (each 2x2 block becomes its most common opaque
+Every drawing is halved down to 32x32 (each 2x2 block becomes its most common opaque
 colour, so the art keeps its look) and turned into a strip of 5 frames, 32x32 each:
 
     0  standing (the drawing itself)
@@ -17,6 +18,8 @@ share one horizontal shift so the body stays in place when the pose changes, and
 all wear the aluminium cap (czapka.png, drawn on the same 64x64 canvas). Extra:
 johnny_cap.png (the cap alone, where it sits in the frame; it falls off on death)
 and johnny_dead.png (the drawing without the cap turned 90 degrees, lying).
+Player 2, Adam Białawski (bialawski_*): the same poses from czarny_front / up / down
+(*2 = firing), no cap (bald: the waves bounce off), and bialawski_dead.png.
 The dead worker becomes a single trimmed image (worker.png).
 
 Run from game/:  python tools/make_characters.py
@@ -111,7 +114,9 @@ def make_set(name: str, files: dict[str, str], folder: Path, overlay: Path | Non
         im = Image.open(folder / v).convert("RGBA")
         if overlay:
             im.alpha_composite(Image.open(overlay).convert("RGBA"))
-        return halve(im)
+        while im.width > F:
+            im = halve(im)
+        return im
     imgs = {k: load(v) for k, v in files.items()}
     base = imgs["idle"]
     bx0, by0, bx1, by1 = body_box(base)
@@ -148,6 +153,20 @@ def main() -> None:
     out.paste(dead.crop((x0, y0, x1, y1)), ((F - (x1 - x0)) // 2, F - 1 - (y1 - y0)))
     out.save(OUT / "johnny_dead.png")
     print("wrote johnny_dead.png")
+    make_set("bialawski", {
+        "idle": "czarny_front.png",
+        "shoot_flat": "czarny_front.png", "shoot_flat_fire": "czarny_front2.png",
+        "shoot_up": "czarny_up.png", "shoot_up_fire": "czarny_up2.png",
+        "shoot_down": "czarny_down.png", "shoot_down_fire": "czarny_down2.png",
+    }, lz)
+    dead = Image.open(lz / "czarny_front.png").convert("RGBA").rotate(90)
+    while dead.width > F:
+        dead = halve(dead)
+    x0, y0, x1, y1 = dead.getbbox()
+    out = Image.new("RGBA", (F, F), (0, 0, 0, 0))
+    out.paste(dead.crop((x0, y0, x1, y1)), ((F - (x1 - x0)) // 2, F - 1 - (y1 - y0)))
+    out.save(OUT / "bialawski_dead.png")
+    print("wrote bialawski_dead.png")
     for name, file in [("farmer", "farmer.png"), ("braun", "donaldbraun.png"), ("mama", "mama.png"),
                        ("mutant", "mutant_bialy.png"), ("mutant_burnt", "mutant_spalony.png")]:
         make_set(name, {"idle": file}, lz)

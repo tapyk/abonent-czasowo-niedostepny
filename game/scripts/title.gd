@@ -1,7 +1,8 @@
 extends Control
 ## Title screen: a short vertical menu over the skyline with the blinking antenna.
 
-const ROW_Y := {"new": 76, "load": 88, "players": 104, "difficulty": 116, "online": 128,
+const SETTINGS_PANEL := preload("res://scripts/settings_panel.gd")
+const ROW_Y := {"new": 72, "load": 83, "players": 98, "difficulty": 109, "online": 120, "settings": 131,
 	"host": 84, "join": 100, "back": 116}
 const ROW_W := 180.0
 const NET_CFG := "user://net.cfg"
@@ -14,6 +15,7 @@ var _sel := 0
 var _save_info := ""
 var _net_screen := false
 var _ip: LineEdit
+var _settings: Control
 
 
 func _ready() -> void:
@@ -26,9 +28,11 @@ func _ready() -> void:
 		var d := Game.read_save()
 		_save_info = "%s, %s" % ["2 graczy" if d.get("coop", false) else "1 gracz",
 			"trudny" if d.get("difficulty", "normal") == "hard" else "normalny"]
-	_main_rows.append_array(["players", "difficulty", "online"])
+	_main_rows.append_array(["players", "difficulty", "online", "settings"])
 	_rows = _main_rows
 	_make_ip_field()
+	_settings = SETTINGS_PANEL.new()
+	add_child(_settings)
 	Net.peer_joined.connect(_on_peer_joined)
 	if Game.dev.has("nethost"):  # --nethost / --netjoin=<ip>: dev runs of online co-op
 		_open_net(true)
@@ -76,8 +80,8 @@ func _make_ip_field() -> void:
 func _process(delta: float) -> void:
 	_t += delta
 	queue_redraw()
-	if _loading:
-		return
+	if _loading or _settings.visible:
+		return  # the settings box takes the input while open
 	if _ip.has_focus():
 		if Input.is_action_just_pressed("back"):
 			_ip.release_focus()
@@ -97,7 +101,7 @@ func _process(delta: float) -> void:
 
 
 func _input(event: InputEvent) -> void:
-	if _loading or not (event is InputEventMouse):
+	if _loading or _settings.visible or not (event is InputEventMouse):
 		return
 	var at: Vector2 = make_input_local(event).position
 	var row := _row_at(at)
@@ -147,6 +151,8 @@ func _confirm(row: String) -> void:
 			_load_save()
 		"online":
 			_open_net(true)
+		"settings":
+			_settings.open()
 		"host":
 			if not Net.is_host():
 				Net.host_game()
@@ -230,7 +236,7 @@ func _draw() -> void:
 
 	var x0 := (size.x - ROW_W) / 2.0
 	if not _net_screen:
-		draw_line(Vector2(x0 + 30, 95), Vector2(x0 + ROW_W - 30, 95), Color("232832"), 1.0)
+		draw_line(Vector2(x0 + 30, 89), Vector2(x0 + ROW_W - 30, 89), Color("232832"), 1.0)
 	for i in _rows.size():
 		var row := _rows[i]
 		var y: float = ROW_Y[row]
@@ -253,6 +259,8 @@ func _draw() -> void:
 					Color("ff8a5a") if Game.is_hard() and sel else col)
 			"online":
 				_center(f, "GRA PRZEZ SIEĆ", y, fs, col)
+			"settings":
+				_center(f, "USTAWIENIA", y, fs, col)
 			"host":
 				_center(f, "HOSTUJ GRĘ (poziom: %s)" % ("trudny" if Game.is_hard() else "normalny"), y, fs, col)
 			"join":
@@ -269,7 +277,7 @@ func _draw() -> void:
 	_center(f, _describe(_rows[_sel]), 144, fs, Color("9fd8ff"))
 	if Touch.active:
 		_center(f, "Lewa strona: ruch.  Prawa: celuj i strzelaj.", 158, fs, Color("8a929c"))
-		_center(f, "E akcja   CIOS   II pauza", 168, fs, Color("8a929c"))
+		_center(f, "CIOS   E akcja   II pauza", 168, fs, Color("8a929c"))
 	elif Game.coop:
 		_center(f, "P1: WSAD + mysz, E akcja", 158, fs, Color("8fc0ff"))
 		_center(f, "P2: strzałki, P strzał, O cios, L akcja (lub pad)", 168, fs, Color("8fe0a0"))
@@ -298,6 +306,8 @@ func _describe(row: String) -> String:
 			return "Zagadki z notatek zamiast minigier." if Game.is_hard() else "Minigry przy antenach."
 		"online":
 			return "Co-op przez Wi-Fi albo na jednym PC."
+		"settings":
+			return "Głośność, ekran, wstrząsy, dotyk."
 	return ""
 
 

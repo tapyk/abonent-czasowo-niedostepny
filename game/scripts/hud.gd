@@ -14,6 +14,9 @@ const VIEW := Vector2(320, 180)
 var tablet: Control
 var status: Control
 var crosshair: Control
+## Arrow to the person to go back to (main.gd quest_arrow_target()).
+var quest_arrow: Control
+var _arrow_t := 0.0
 var dialog: Control
 var hack: Control
 var notes_box: Control
@@ -79,6 +82,12 @@ func _ready() -> void:
 	hard_panel.position = Vector2(VIEW.x - HackHard.PANEL.x - 4, 6)
 	root.add_child(hard_panel)
 
+	quest_arrow = Control.new()
+	quest_arrow.set_anchors_preset(Control.PRESET_FULL_RECT)
+	quest_arrow.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	quest_arrow.draw.connect(_draw_quest_arrow)
+	root.add_child(quest_arrow)
+
 	crosshair = Control.new()
 	crosshair.set_anchors_preset(Control.PRESET_FULL_RECT)
 	crosshair.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -135,6 +144,33 @@ func set_hp2(v: int, m: int) -> void:
 	status.set_hp2(v, m)
 
 
+## On screen: a bobbing arrow above the person (or door).
+func _draw_quest_arrow() -> void:
+	if Game.hacking or Game.menu_open:
+		return
+	var story := get_tree().get_first_node_in_group("story")
+	if story == null or not story.has_method("quest_arrow_target"):
+		return
+	var world: Vector2 = story.quest_arrow_target()
+	if world == Vector2.INF:
+		return
+	var at := get_viewport().get_canvas_transform() * world
+	var inner := Rect2(Vector2(12, 26), VIEW - Vector2(24, 52))
+	var col := Color("ffe08a")
+	var dir := Vector2.DOWN
+	if inner.has_point(at):
+		at.y += sin(_arrow_t * 5.0) * 2.0 - 4.0
+	else:
+		dir = (at - VIEW / 2.0).normalized()
+		at = Vector2(clampf(at.x, inner.position.x, inner.end.x), clampf(at.y, inner.position.y, inner.end.y))
+		at += dir * sin(_arrow_t * 5.0) * 1.5
+	var side := dir.orthogonal()
+	var arrow := func(size: float) -> PackedVector2Array:
+		return PackedVector2Array([at + dir * size, at - dir * size * 0.6 + side * size, at - dir * size * 0.6 - side * size])
+	quest_arrow.draw_colored_polygon(arrow.call(6.5), Color(0, 0, 0, 0.7))  # outline
+	quest_arrow.draw_colored_polygon(arrow.call(4.5), col)
+
+
 func _draw_crosshair() -> void:
 	var m := crosshair.get_local_mouse_position()
 	if Touch.active:
@@ -148,7 +184,9 @@ func _draw_crosshair() -> void:
 	crosshair.draw_rect(Rect2(m - Vector2(0.5, 0.5), Vector2(1, 1)), c)
 
 
-func _process(_delta: float) -> void:
+func _process(delta: float) -> void:
+	_arrow_t += delta
+	quest_arrow.queue_redraw()
 	crosshair.queue_redraw()
 	var panel_open := Game.hacking or (is_instance_valid(notes_box) and notes_box.visible)
 	objective.visible = not Game.hacking

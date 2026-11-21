@@ -27,6 +27,7 @@ var _busy := false
 var _dying := false
 var _ending := false
 var _objective := ""
+var _announced_return := ""
 # online client: host mutants / drops shown here (net id -> node), host map revision
 var _puppets := {}
 var _drops := {}
@@ -81,6 +82,10 @@ func _exit_tree() -> void:
 
 ## The story setup.
 func _intro() -> void:
+	if Game.coop:
+		# Player 2, Adam Białawski, explains the missing cap
+		Game.say_line("Johnny", "Białawski, a twoja czapka z folii?")
+		Game.say_line("Białawski", "Nie potrzebuję. Fale odbijają się od łysej glacy.")
 	if Touch.active:
 		hud.show_hint("Lewa strona: ruch   prawa: celuj i strzel   E: akcja")
 	elif Net.is_host():
@@ -223,6 +228,9 @@ func objective() -> String:
 	var m := Game.current_map
 	if not Game.has_pistol:
 		return "Weź pistolet taty ze stołu."
+	var back := return_target()
+	if not back.is_empty():
+		return back.text
 	if not Game.is_antenna_off("a1"):
 		if m == "home":
 			return "Zejdź schodami na osiedle."
@@ -235,8 +243,6 @@ func objective() -> String:
 	if not Game.has_kable:
 		if not Game.flags.has("farmer_met"):
 			return "Na wschód: stodoła Fasti Farmera na polach."
-		if Game.parts >= PARTS_NEEDED:
-			return "Zanieś części Fasti Farmerowi."
 		return "Części od spalonych: %d/%d." % [Game.parts, PARTS_NEEDED]
 	if not Game.is_antenna_off("a2"):
 		return "Plantacja na wschodzie: zhakuj antenę 2."
@@ -252,8 +258,6 @@ func objective() -> String:
 		return "Oczyść Trybunał z mutantów (%d)." % left if left >= 0 else "Oczyść Trybunał z mutantów."
 	if not Game.is_antenna_off("a3"):
 		return "Zhakuj antenę 3 w ogrodzie Trybunału."
-	if not Game.flags.has("braun_done"):
-		return "Wróć do Brauna."
 	if not Game.flags.has("mama_met"):
 		if m == "trybunal":
 			return "Łódka na przystani. Płyń do mamy."
@@ -291,6 +295,74 @@ func _update_objective() -> void:
 	if o != _objective:
 		_objective = o
 		hud.set_objective(o)
+		var back := return_target()
+		if not back.is_empty() and o == back.text and o != _announced_return:
+			_announced_return = o  # quest done: say once who to go back to
+			hud.show_big(o.trim_suffix(".").to_upper(), Color("ffe08a"), 1.2)
+			Sfx.play("confirm", 0.0, -4.0)
+
+
+# --- going back to people after a quest ------------------------------------------------
+
+## The person the player has to go back to now that their task is done, or {}.
+func return_target() -> Dictionary:
+	if Game.flags.has("farmer_met") and Game.parts >= PARTS_NEEDED and not Game.has_kable:
+		return {"map": "stodola", "npc": "farmer", "text": "Wróć do Fasti Farmera."}
+	if _trybunal_done() and not Game.flags.has("braun_done"):
+		return {"map": "trybunal", "npc": "braun", "text": "Wróć do Brauna."}
+	if Game.flags.has("mama_met"):
+		return {"map": "mama", "npc": "braun", "text": "Wróć do Brauna przy odrzutowcu."}
+	return {}
+
+
+## Where the HUD's quest arrow points (world position), or Vector2.INF for no arrow.
+func quest_arrow_target() -> Vector2:
+	var back := return_target()
+	if back.is_empty() or level == null:
+		return Vector2.INF
+	if Game.current_map == back.map:
+		for n in get_tree().get_nodes_in_group("npcs"):
+			if n.npc_id == back.npc:
+				return n.global_position + Vector2(0, -28)
+		return Vector2.INF
+	var next := _next_map_toward(Game.current_map, back.map)
+	for n in level.entities.get_children():
+		if "target_map" in n and n.target_map == next:
+			return n.global_position + Vector2(0, -10)
+	return Vector2.INF
+
+
+## Doors and boats between maps, read once from the map headers: map -> [maps].
+static var _map_links := {}
+
+
+## First map to go to on the way from `from` to `to` (breadth-first over the links).
+func _next_map_toward(from: String, to: String) -> String:
+	if _map_links.is_empty():
+		for f in DirAccess.get_files_at("res://maps"):
+			if not f.ends_with(".txt"):
+				continue
+			var links: Array[String] = []
+			var file := FileAccess.open("res://maps/" + f, FileAccess.READ)
+			while file != null and not file.eof_reached():
+				var line := file.get_line()
+				var parts := line.split("=", true, 1)
+				if parts.size() == 2 and (parts[1].begins_with("warp:") or parts[1].begins_with("boat:")):
+					links.append(parts[1].split(":")[1])
+			_map_links[f.get_basename()] = links
+	var came_from := {from: ""}
+	var queue: Array[String] = [from]
+	while not queue.is_empty():
+		var m: String = queue.pop_front()
+		if m == to:
+			while came_from[m] != from and came_from[m] != "":
+				m = came_from[m]
+			return m
+		for nb in _map_links.get(m, []):
+			if not came_from.has(nb):
+				came_from[nb] = m
+				queue.append(nb)
+	return ""
 
 
 func on_trigger(id: String) -> void:

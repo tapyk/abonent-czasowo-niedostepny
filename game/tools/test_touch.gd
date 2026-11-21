@@ -24,6 +24,13 @@ func _frames(n: int) -> void:
 		await get_tree().physics_frame
 
 
+## Wait for the input Touch sent to be flushed and seen (it lands with the next frame).
+func _settle() -> void:
+	for k in 2:
+		await get_tree().process_frame
+	await get_tree().physics_frame
+
+
 func _touch(i: int, pos: Vector2, pressed: bool) -> void:
 	var t := InputEventScreenTouch.new()
 	t.index = i
@@ -93,12 +100,40 @@ func _run() -> void:
 	var probe := _Probe.new()
 	probe.cb = watcher
 	add_child(probe)
-	_touch(2, Vector2(296, 128), true)
-	await _frames(1)
+	_touch(2, Vector2(266, 148), true)
+	await _settle()
 	_ok("E button presses interact", got[0] and Input.is_action_pressed("interact"))
-	_touch(2, Vector2(296, 128), false)
-	await _frames(1)
+	_touch(2, Vector2(266, 148), false)
+	await _settle()
 	_ok("E released", not Input.is_action_pressed("interact"))
+	m.hud.dialog._queue.clear()
+	m.hud.dialog._next()  # no dialog line: the big button is CIOS, not OK
+	_touch(2, Vector2(296, 128), true)
+	await _settle()
+	_ok("the big button punches", Input.is_action_pressed("melee"))
+	_touch(2, Vector2(296, 128), false)
+	await _settle()
+
+	# pause: the II button opens it, tapping "wróć" closes it
+	_touch(3, Vector2(112, 10), true)
+	await _frames(1)
+	_touch(3, Vector2(112, 10), false)
+	for k in 3:
+		await get_tree().process_frame
+	_ok("II button opens the pause menu", Game.menu_open and get_tree().paused)
+	if DisplayServer.get_name() != "headless":
+		var pm: Node = get_tree().get_first_node_in_group("pause_menu")
+		var resume_at: Vector2 = pm._row_rect(0).get_center()
+		_touch(3, resume_at, true)
+		for k in 3:
+			await get_tree().process_frame
+		_touch(3, resume_at, false)
+		for k in 3:
+			await get_tree().process_frame
+		_ok("tapping 'wróć' closes the pause menu", not Game.menu_open and not get_tree().paused)
+	else:
+		get_tree().paused = false
+		Game.menu_open = false
 	m.queue_free()
 	await _frames(3)
 

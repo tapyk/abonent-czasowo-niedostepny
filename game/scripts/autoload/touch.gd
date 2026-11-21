@@ -6,6 +6,8 @@ const DEAD := 0.18
 const STICK_HOME := Vector2(44, 136)
 
 var active := false
+## Settings "DOTYK": "auto" (phones / first touch), "on" (always), "off" (never).
+var mode := "auto"
 ## A finger is on the aim side (gameplay): aim / shoot toward aim_pos.
 var aiming := false
 ## Viewport coordinates (320x180) of the aiming finger.
@@ -24,15 +26,29 @@ func _ready() -> void:
 	layer = 30
 	process_mode = Node.PROCESS_MODE_ALWAYS
 	Input.emulate_mouse_from_touch = false  # we turn taps into clicks ourselves (_click)
+	get_tree().quit_on_go_back = false  # Android back: pause / leave a panel, not quit
 	_layer = Control.new()
 	_layer.set_anchors_preset(Control.PRESET_FULL_RECT)
 	_layer.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_layer.draw.connect(_draw_controls)
 	add_child(_layer)
-	if OS.has_feature("mobile") or Game.dev.has("touch"):
+	set_mode(Settings.touch)
+	if Game.dev.has("touch"):
 		_enable()
-	if Game.dev.has("touch") and not OS.has_feature("mobile"):
-		Input.emulate_touch_from_mouse = true
+		if not OS.has_feature("mobile"):
+			Input.emulate_touch_from_mouse = true
+
+
+func set_mode(m: String) -> void:
+	mode = m
+	if mode == "off":
+		_release_all()
+		active = false
+		Input.emulate_mouse_from_touch = true  # taps still click menus, no on-screen pad
+	else:
+		Input.emulate_mouse_from_touch = false  # we turn taps into clicks ourselves (_click)
+		if mode == "on" or OS.has_feature("mobile"):
+			_enable()
 
 
 func _enable() -> void:
@@ -40,6 +56,12 @@ func _enable() -> void:
 		return
 	active = true
 	Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
+
+
+## Android back button / gesture works like ESC (pause, close a panel, back in menus).
+func _notification(what: int) -> void:
+	if what == NOTIFICATION_WM_GO_BACK_REQUEST:
+		_tap_action("back")
 
 
 ## World position under the aiming finger (through the game camera).
@@ -71,11 +93,12 @@ func _buttons() -> Array:
 		out.append(["interact", Vector2(302, 164), 10.0, "E", "interact"])
 		out.append(["accept", Vector2(274, 164), 11.0, "OK", "accept"])
 		return out
-	out.append(["interact", Vector2(296, 128), 13.0, "E", "interact"])
+	# the punch is the big thumb button; E (things, people) sits next to it
 	if _story().hud.dialog.visible:
-		out.append(["accept", Vector2(266, 148), 11.0, "OK", "accept"])
+		out.append(["accept", Vector2(296, 128), 13.0, "OK", "accept"])
 	else:
-		out.append(["melee", Vector2(266, 148), 10.0, "CIOS", "melee"])
+		out.append(["melee", Vector2(296, 128), 13.0, "CIOS", "melee"])
+	out.append(["interact", Vector2(266, 148), 11.0, "E", "interact"])
 	return out
 
 
@@ -89,6 +112,8 @@ func _button_at(pos: Vector2) -> Array:
 # --- input ---------------------------------------------------------------------------
 
 func _input(event: InputEvent) -> void:
+	if mode == "off":
+		return
 	if event is InputEventScreenTouch:
 		_enable()
 		if event.pressed:

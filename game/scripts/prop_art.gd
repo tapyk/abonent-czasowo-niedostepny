@@ -38,6 +38,11 @@ static func plane_flying() -> Texture2D:
 	return _or(Art.scaled(P + "props/samolot_lot.png", 1.0, Rect2i(19, 44, 148, 57)), plane())
 
 
+## The team's pine (pinetree.png, trunk base at the bottom), or null without it.
+static func pine() -> Texture2D:
+	return Art.scaled(P + "props/pinetree.png", 1.0, Rect2i(19, 0, 28, 64))
+
+
 static func plane_wrecked() -> Texture2D:
 	return _or(Art.scaled(P + "props/samolot_uszkodzony.png", 1.0, Rect2i(19, 44, 148, 63)), plane())
 
@@ -58,7 +63,9 @@ static func pickup(kind: String) -> Texture2D:
 		"part":
 			return _or(Art.scaled(P + "items/item_gear.png", 0.75, Rect2i(), Color(1.0, 0.6, 0.3)), Art.box(Vector2i(7, 7), Color("9aa0a8")))
 		"pistol":
-			return _or(Art.scaled(P + "ui/ui_pistol.png", 0.75), Art.box(Vector2i(8, 5), Color("555a60")))
+			# the team's Glock (64 px canvas, 2x2 pixels): the gun alone, at game scale
+			return _or(Art.scaled(P + "props/glock.png", 0.5, Rect2i(16, 20, 28, 22)),
+				_or(Art.scaled(P + "ui/ui_pistol.png", 0.75), Art.box(Vector2i(8, 5), Color("555a60"))))
 		"sekator":
 			return _or(Art.scaled(P + "items/item_shears.png", 0.5), Art.box(Vector2i(8, 8), Color("c04040")))
 		"cable":

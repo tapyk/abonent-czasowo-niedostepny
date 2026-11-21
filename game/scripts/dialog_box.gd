@@ -175,7 +175,13 @@ func _draw() -> void:
 	draw_rect(Rect2(0, 0, W, _h), Color(0.03, 0.04, 0.05, 0.85))
 	var edge := Color("a8743a") if _radio else Color("4a5160")
 	draw_rect(Rect2(0, 0, W, _h), edge, false, 1.0)
-	var name_col := Color("ffb060") if _radio else (Color("8fc0ff") if _speaker == "Johnny" else Color("c0c8d0"))
+	var name_col := Color("c0c8d0")
+	if _radio:
+		name_col = Color("ffb060")
+	elif _speaker == "Johnny":
+		name_col = Color("8fc0ff")  # P1's colour
+	elif _speaker == "Białawski":
+		name_col = Color("8fe0a0")  # P2's colour
 	var label := _speaker.to_upper()
 	if _radio:
 		label += "  (radio)"

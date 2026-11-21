@@ -47,6 +47,8 @@ var entities: Node2D
 
 var _keys: Array[String] = []          # atlas column -> tile key
 var _cells := {}                        # layer -> Array of [Vector2i, key]
+var _pine: Texture2D = PropArt.pine()   # tree tiles become pines when the drawing exists
+var _pines: Array[Vector2i] = []
 
 
 func build(name: String) -> void:
@@ -71,6 +73,11 @@ func build(name: String) -> void:
 				_add("ground", x, y, GROUND[ch])
 			elif LOW.has(ch):
 				_add("ground", x, y, _low_variant(ch, x, y))
+			elif ch == "T" and _pine != null:
+				# pine sprite (y-sorted with the characters) over an invisible collision tile
+				_add("ground", x, y, _ground_under(x, y))
+				_add("walls", x, y, "solid")
+				_pines.append(Vector2i(x, y))
 			elif SOLID.has(ch):
 				_add("ground", x, y, _ground_under(x, y))
 				_add("walls", x, y, _solid_variant(ch, x, y))
@@ -104,6 +111,7 @@ func build(name: String) -> void:
 		for e in _cells[layer_name]:
 			layer.set_cell(e[0], 0, Vector2i(_keys.find(e[1]), 0))
 	_place_buildings()
+	_place_pines()
 	_place_grass()
 	for s in spawns:
 		_spawn(s[0], s[1], s[2])
@@ -239,6 +247,20 @@ func _place_grass() -> void:
 
 
 ## Building pictures from the `buildings` header (see the top of this file).
+func _place_pines() -> void:
+	for c in _pines:
+		var h := hash(c)
+		var s := Sprite2D.new()
+		s.texture = _pine
+		s.centered = false
+		var k := 0.8 + float(h % 5) * 0.05
+		s.scale = Vector2(k, k)
+		s.flip_h = (h >> 3) % 2 == 0
+		s.offset = Vector2(-_pine.get_width() / 2.0, -_pine.get_height() + 2.0)
+		s.position = feet(c.x, c.y) + Vector2(float((h >> 5) % 5) - 2.0, 0.0)
+		entities.add_child(s)
+
+
 func _place_buildings() -> void:
 	if not header.has("buildings"):
 		return

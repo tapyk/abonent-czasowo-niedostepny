@@ -117,6 +117,8 @@ func _run_all() -> void:
 	m_coop_hard.free()
 	await _frames(2)
 
+	_test_settings()
+	await _test_return_arrow(main_scn)
 	await _test_coop_zipline_and_wreck(main_scn)
 	_test_ammo_amounts()
 
@@ -125,6 +127,61 @@ func _run_all() -> void:
 
 	print("=== EXTENDED MODES TEST DONE: %d failed ===" % _failed)
 	get_tree().quit(1 if _failed > 0 else 0)
+
+
+## The settings box changes and applies values (without saving the player's file).
+func _test_settings() -> void:
+	var keep := [Settings.volume, Settings.shake, Settings.touch]
+	var panel: Control = load("res://scripts/settings_panel.gd").new()
+	add_child(panel)
+	panel.open()
+	Settings.volume = 80
+	panel.call("_change", "volume", -1)
+	_ok("settings: volume down 10% and applied", Settings.volume == 70
+		and absf(AudioServer.get_bus_volume_db(0) - linear_to_db(0.7)) < 0.01, str(Settings.volume))
+	panel.call("_change", "shake", 1)
+	_ok("settings: shake toggles", Settings.shake != keep[1])
+	panel.call("_change", "touch", 1)
+	_ok("settings: touch mode cycles", Settings.touch != keep[2] and Touch.mode == Settings.touch, Settings.touch)
+	panel.free()
+	Settings.volume = keep[0]
+	Settings.shake = keep[1]
+	Settings.touch = keep[2]
+	Settings.apply()
+
+
+func _test_return_arrow(main_scn: PackedScene) -> void:
+	Game.coop = false
+	Game.difficulty = "normal"
+	var m := main_scn.instantiate()
+	add_child(m)
+	await _frames(2)
+	Game.has_pistol = true
+	Game.disabled_ids.append("a1")
+	Game.flags["farmer_met"] = true
+	Game.parts = 3
+	_ok("3 parts: objective says go back to the Farmer", m.objective() == "Wróć do Fasti Farmera.", m.objective())
+	_ok("route from the roof to the barn goes through the estate", m.call("_next_map_toward", "roof", "stodola") == "world")
+	m.load_map("world")
+	await _frames(2)
+	var door: Vector2 = Vector2.INF
+	for n in m.level.entities.get_children():
+		if "target_map" in n and n.target_map == "stodola":
+			door = n.global_position
+	var arrow: Vector2 = m.quest_arrow_target()
+	_ok("on the estate the arrow points at the barn door", arrow != Vector2.INF and arrow.distance_to(door) < 16.0)
+	m.load_map("stodola")
+	await _frames(2)
+	var farmer: Node = get_tree().get_nodes_in_group("npcs").filter(func(n): return n.npc_id == "farmer")[0]
+	_ok("in the barn the arrow points at the Farmer", m.quest_arrow_target().distance_to(farmer.global_position) < 40.0)
+	Game.has_kable = true
+	_ok("after the cables: no arrow", m.quest_arrow_target() == Vector2.INF)
+	Game.flags["trybunal_clear"] = true
+	Game.disabled_ids.append("a3")
+	Game.disabled_ids.append("a2")
+	_ok("Trybunał done: go back to Braun", m.objective() == "Wróć do Brauna.", m.objective())
+	m.free()
+	await _frames(2)
 
 
 func _test_coop_zipline_and_wreck(main_scn: PackedScene) -> void:
