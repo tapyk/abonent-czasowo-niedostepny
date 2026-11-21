@@ -37,12 +37,9 @@ func _exit_tree() -> void:
 	Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
 
 
+## The story setup.
 func _intro() -> void:
 	hud.show_hint("WASD: ruch   E: akcja   LPM: cios   Enter: dalej")
-	Game.say_line("Tablet", "Abonent czasowo niedostępny.")
-	Game.say_line("Johnny", "Później. Jasne.")
-	Game.say_line("Mama", "Johnny… nie dzwoń… idą za sygnałem… wyłącz anteny…", true)
-	Game.say_line("Mama", "…jestem w domu za jeziorem… zacznij od bloku naprzeciwko…", true)
 
 
 func _brightness() -> float:
@@ -117,7 +114,7 @@ func _once(flag: String, lines: Array) -> void:
 func _on_enter_map(map_name: String) -> void:
 	match map_name:
 		"world":
-			_once("world_seen", [["Johnny", "Blok naprzeciwko. Czerwone światło na dachu."]])
+			_once("world_seen", [["Mama", "Widzisz czerwone światło na bloku naprzeciwko? Zacznij od tej anteny.", true]])
 		"stodola":
 			_once("stodola_seen", [["Johnny", "Folia aluminiowa na ścianach. Zero kresek."]])
 		"szczelina":

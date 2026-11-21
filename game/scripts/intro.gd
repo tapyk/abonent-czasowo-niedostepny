@@ -1,31 +1,31 @@
 extends Control
-## Intro cutscene (drawn in code).
+## Intro cutscene (drawn in code), ~28 s.
 
 const W := 320.0
 const H := 180.0
 const CURN := Vector2(236, 118)       # CURN complex on the horizon
-const RADIO_CPS := 15.0       # typing speed of the radio lines
-const RADIO_LINES := [[0.4, "[RADIO] …komunikat specjalny…"], [3.0, "…awaria w ośrodku badawczym CURN…"],
-	[5.8, "…luki w zabezpieczeniach… sygnał…"], [8.6, "…prosimy nie zbliżać się do…"]]
-const T_CITY := 12.0          # radio lines end, the window view starts
-const T_FLASH := 15.0
-const T_PHONE := 25.0
-const T_RING := 25.3          # ringback: 4 s (two beeps)
-const T_MESSAGE := 29.6       # operator recording: ~8.4 s
-const T_BLACK := 38.2
-const T_END := 40.7
+const T_FLASH := 3.5
+const T_PHONE := 12.5
+const T_RING := 12.7          # ringback (cut short when the recording starts)
+const T_MESSAGE := 15.5       # operator recording (cut off by the radio)
+const T_RADIO := 20.5         # black screen, Mama breaks through the static
+const RADIO_CPS := 14.0       # typing speed of Mama's radio lines
+const MAMA_LINES := [[0.6, "Johnny… nie dzwoń…"], [2.4, "…oni idą za sygnałem…"],
+	[4.4, "…wyłącz anteny… jestem za jeziorem…"]]
+const T_END := T_RADIO + 8.0
 
 var _t := 0.0
 var _boomed := false
 var _rang := false
 var _messaged := false
+var _radioed := false
 var _rng := RandomNumberGenerator.new()
 var _buildings: Array = []            # [x, w, h]
 var _antennas: Array = []             # [pos, lit_time]
 var _people: Array = []               # [x, speed, mutate_time]
 var _stars: Array = []
 var _shake := 0.0
-var _typed := [0, 0, 0, 0]            # letters already voiced per radio line
+var _typed := [0, 0, 0]               # letters already voiced per Mama line
 
 
 func _ready() -> void:
@@ -45,7 +45,7 @@ func _ready() -> void:
 		_people.append([_rng.randf_range(10, 300), _rng.randf_range(6, 12) * (1 if _rng.randf() < 0.5 else -1), -1.0])
 	for i in 40:
 		_stars.append(Vector2(_rng.randf_range(0, W), _rng.randf_range(0, 90)))
-	Sfx.set_static(0.45)
+	Sfx.set_static(0.06)  # quiet night hiss; the blast turns it up
 
 
 func _process(delta: float) -> void:
@@ -67,17 +67,21 @@ func _process(delta: float) -> void:
 			p[2] = _t
 			Sfx.play("growl", 0.2, -14.0)
 		p[0] = wrapf(p[0] + p[1] * delta * (0.4 if p[2] > 0.0 else 1.0), -10.0, W + 10.0)
-	if _t < T_CITY:
-		_voice_radio()
 	if _t >= T_RING and not _rang:
 		_rang = true
 		Sfx.set_static(0.08)
 		Sfx.play("ringback", 0.0, -6.0)
 	if _t >= T_MESSAGE and not _messaged:
 		_messaged = true
+		Sfx.stop_all()  # cut the ringback
 		Sfx.play("unavailable", 0.0, 0.0)
-	if _t >= T_BLACK and _t - get_process_delta_time() < T_BLACK:
-		Sfx.set_static(0.0)
+	if _t >= T_RADIO and not _radioed:
+		_radioed = true
+		Sfx.stop_all()  # the static breaks into the operator's recording
+		Sfx.set_static(0.55)
+		Sfx.play("beep", 0.0, -10.0)
+	if _radioed:
+		_voice_radio()
 	if _t > 0.5 and Input.is_action_just_pressed("accept"):
 		_finish()
 	elif _t >= T_END:
@@ -85,15 +89,15 @@ func _process(delta: float) -> void:
 	queue_redraw()
 
 
-## Announcer's voice blip for each newly typed letter of the radio lines.
+## Mama's voice blip for each newly typed letter of her radio lines.
 func _voice_radio() -> void:
-	for i in RADIO_LINES.size():
-		var text: String = RADIO_LINES[i][1]
-		var n := clampi(int((_t - RADIO_LINES[i][0]) * RADIO_CPS), 0, text.length())
+	for i in MAMA_LINES.size():
+		var text: String = MAMA_LINES[i][1]
+		var n := clampi(int((_t - T_RADIO - MAMA_LINES[i][0]) * RADIO_CPS), 0, text.length())
 		if n > _typed[i]:
 			_typed[i] = n
 			if text[n - 1] not in " .,!?…[]":
-				Sfx.voice("Radio", true)
+				Sfx.voice("Mama", true)
 
 
 func _finish() -> void:
@@ -111,13 +115,8 @@ func _wave_radius() -> float:
 func _draw() -> void:
 	var f := Art.font()
 	var fs := Art.FONT_SIZE
-	if _t < T_CITY:
+	if _t >= T_RADIO:
 		_draw_radio(f, fs)
-		return
-	if _t >= T_BLACK:
-		draw_rect(Rect2(0, 0, W, H), Color.BLACK)
-		var a := clampf((_t - T_BLACK - 0.3) / 0.8, 0.0, 1.0)
-		_center(f, "Kilka dni później…", 92, fs, Color(0.85, 0.85, 0.9, a))
 		return
 	var off := Vector2(randf_range(-2, 2), randf_range(-2, 2)) * _shake * 2.0
 	draw_set_transform(off)
@@ -133,18 +132,24 @@ func _draw() -> void:
 	_captions(f, fs)
 
 
+## Black screen, walkie-talkie LED and Mama's lines typed through the static.
 func _draw_radio(f: Font, fs: int) -> void:
 	draw_rect(Rect2(0, 0, W, H), Color.BLACK)
-	var y := 70.0
-	for l in RADIO_LINES:
-		if _t > l[0]:
-			var n := int((_t - l[0]) * RADIO_CPS)
-			var s: String = l[1].substr(0, n)
-			_center(f, s, y, fs, Color(1.0, 0.7, 0.4, 0.9))
-		y += 12.0
-	# radio LED
+	var k := _t - T_RADIO
+	# static snow fading as her voice comes through
+	var snow := clampf(1.0 - k / 1.5, 0.15, 1.0)
+	for i in int(120 * snow):
+		draw_rect(Rect2(randf() * W, randf() * H, 1, 1), Color(1, 1, 1, randf() * 0.35 * snow))
 	if fmod(_t, 0.5) < 0.25:
 		draw_rect(Rect2(W / 2.0 - 2, 52, 4, 4), Color("ff3a2a"))
+	_center(f, "MAMA  (radio)", 64, fs, Color(1.0, 0.69, 0.38, clampf(k / 0.4, 0.0, 1.0)))
+	var y := 82.0
+	for l in MAMA_LINES:
+		if k > l[0]:
+			var n := int((k - l[0]) * RADIO_CPS)
+			var s: String = l[1].substr(0, n)
+			_center(f, s, y, fs, Color(1.0, 0.85, 0.7, 0.95))
+		y += 12.0
 
 
 func _draw_city() -> void:
@@ -255,7 +260,7 @@ func _draw_phone(f: Font, fs: int) -> void:
 
 
 func _captions(f: Font, fs: int) -> void:
-	var caps := [[T_CITY, T_FLASH - 0.2, "Noc. Widok z okna, 4. piętro."],
+	var caps := [[0.3, T_FLASH - 0.2, "Noc. Widok z okna, 4. piętro."],
 		[T_FLASH + 2.0, T_FLASH + 6.4, "Sygnał z CURNu wszedł do sieci LTE."],
 		[T_FLASH + 3.6, T_FLASH + 6.4, "Każda antena nadaje go dalej."],
 		[T_FLASH + 6.6, T_PHONE - 0.1, "Ludzie w zasięgu mutują."],
