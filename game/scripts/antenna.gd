@@ -7,11 +7,16 @@ extends Node2D
 @export var need := "cable"
 
 const ENEMY_SCN := preload("res://scenes/enemy.tscn")
+## Co-op: mutants come at the signal while someone hacks.
+const WAVES := {
+	"normal": {"first": 4.0, "every": 9.0, "per": 1, "alive": 3, "waves": 4, "burnt": 0.15},
+	"hard": {"first": 4.0, "every": 8.0, "per": 2, "alive": 4, "waves": 5, "burnt": 0.25},
+}
 
 var disabled := false
 var maze_seed := 1
 var _blink := 0.0
-var _wave_t := 1.4
+var _wave_t := 4.0
 var _wave_count := 0
 var _wave_enemies: Array[Node] = []
 
@@ -67,21 +72,27 @@ func _is_being_hacked() -> bool:
 	return false
 
 
+func _waves() -> Dictionary:
+	return WAVES["hard" if Game.is_hard() else "normal"]
+
+
 func _tick_coop_waves(delta: float) -> void:
+	var w := _waves()
+	if _wave_count >= int(w.waves):
+		return
 	_wave_enemies = _wave_enemies.filter(func(e): return is_instance_valid(e) and e.is_in_group("enemies"))
-	var hard := Game.is_hard()
-	var max_alive := 8 if hard else 5
-	if _wave_enemies.size() >= max_alive:
+	if _wave_enemies.size() >= int(w.alive):
 		return
 	_wave_t -= delta
 	if _wave_t > 0.0:
 		return
-	_wave_t = 4.4 if hard else 6.0
+	_wave_t = float(w.every)
 	_wave_count += 1
-	var per_wave := 3 if hard else 2
-	spawn_defense_wave(per_wave)
+	spawn_defense_wave(int(w.per))
 	if _wave_count == 1:
-		Game.show_hint("Fala mutantów idzie na sygnał! Osłaniaj hakującego!")
+		Game.show_hint("Mutanci idą na sygnał! Osłaniaj hakującego!")
+	elif _wave_count == int(w.waves):
+		Game.show_hint("Ostatnia fala. Wytrzymaj!")
 
 
 func spawn_defense_wave(count: int) -> int:
@@ -92,7 +103,8 @@ func spawn_defense_wave(count: int) -> int:
 	if lvl == null or not lvl.has_method("nearest_walkable"):
 		return 0
 	var my_cell: Vector2i = get_meta("cell", lvl.to_cell(global_position))
-	var offsets := [Vector2i(-5, 0), Vector2i(5, 0), Vector2i(0, 4), Vector2i(-4, 3), Vector2i(4, 3), Vector2i(0, -4)]
+	# a few tiles out, so the guard sees them coming
+	var offsets := [Vector2i(-7, 0), Vector2i(7, 0), Vector2i(0, 6), Vector2i(-6, 4), Vector2i(6, 4), Vector2i(0, -6)]
 	var spawned := 0
 	for i in count:
 		var off: Vector2i = offsets[(_wave_count * 2 + i) % offsets.size()]
@@ -100,7 +112,7 @@ func spawn_defense_wave(count: int) -> int:
 		if sc.x < 0:
 			continue
 		var e: CharacterBody2D = ENEMY_SCN.instantiate()
-		e.burnt = (randf() < (0.45 if Game.is_hard() else 0.2))
+		e.burnt = randf() < float(_waves().burnt)
 		e.position = lvl.feet(sc.x, sc.y)
 		ents.add_child(e)
 		e.alert.call_deferred()

@@ -75,7 +75,7 @@ func _run_all() -> void:
 	a2_coop.call("_tick_coop_waves", 0.05)
 	await _frames(2)
 	var norm_wave_sz: int = a2_coop.get("_wave_enemies").size()
-	_ok("Co-op Normal spawns 2-mutant defense wave when hacking", norm_wave_sz == 2, str(norm_wave_sz))
+	_ok("Co-op Normal: a small defense wave when hacking", norm_wave_sz == 1, str(norm_wave_sz))
 	# Test Co-op downed & partner proximity revive (no instant party wipe when P2 is alive!)
 	Game.dev.erase("god")
 	Game.player.take_damage(500, Vector2.ZERO)
@@ -106,7 +106,14 @@ func _run_all() -> void:
 	a2_hard_coop.call("_tick_coop_waves", 0.05)
 	await _frames(2)
 	var hard_wave_sz: int = a2_hard_coop.get("_wave_enemies").size()
-	_ok("Co-op Hard spawns larger 3-mutant wave when hacking", hard_wave_sz == 3, str(hard_wave_sz))
+	_ok("Co-op Hard: a slightly bigger defense wave", hard_wave_sz == 2, str(hard_wave_sz))
+	# a lone guard can hold: the waves stop after a few and never pile up
+	for i in 20:
+		a2_hard_coop.set("_wave_t", 0.0)
+		a2_hard_coop.call("_tick_coop_waves", 0.05)
+	var w: Dictionary = a2_hard_coop.WAVES["hard"]
+	var alive: int = a2_hard_coop.get("_wave_enemies").size()
+	_ok("Co-op Hard waves never exceed the cap", alive <= int(w.alive) and a2_hard_coop.get("_wave_count") <= int(w.waves), "%d alive" % alive)
 	m_coop_hard.free()
 	await _frames(2)
 
