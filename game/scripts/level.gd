@@ -17,6 +17,7 @@ const NPC := preload("res://scripts/npc.gd")
 const ZIPLINE := preload("res://scripts/zipline.gd")
 const BOAT := preload("res://scripts/boat.gd")
 const GRASS_TUFTS := preload("res://scripts/grass_tufts.gd")
+const CLUE_NOTE := preload("res://scripts/clue_note.gd")
 
 const GROUND := {".": "grass", ",": "grass2", ":": "dirt", "=": "road", "_": "sidewalk",
 	"f": "field", "r": "runway", "o": "floor", "d": "sand", "j": "pier", "g": "plaza",
@@ -99,6 +100,116 @@ func build(name: String) -> void:
 	_place_grass()
 	for s in spawns:
 		_spawn(s[0], s[1], s[2])
+	if Game.is_hard():
+		_spawn_hard_clues()
+	if Game.coop and map_name in ["world", "roof", "szczelina", "trybunal"]:
+		_spawn_coop_extra_enemies(spawns)
+
+
+func is_walkable_cell(x: int, y: int) -> bool:
+	if x < 1 or y < 1 or x >= width - 1 or y >= height - 1:
+		return false
+	var ch := cell(x, y)
+	if not (GROUND.has(ch) or ch in ["P", "z", "Z", "a", "m", "b"]):
+		return false
+	for n in entities.get_children():
+		if n.get_meta("cell", Vector2i(-99, -99)) == Vector2i(x, y):
+			if "target_map" in n or "npc_id" in n or "antenna_id" in n:
+				return false
+	return true
+
+
+func nearest_walkable(start: Vector2i) -> Vector2i:
+	for rad in range(0, 7):
+		for dy in range(-rad, rad + 1):
+			for dx in range(-rad, rad + 1):
+				var c := start + Vector2i(dx, dy)
+				if is_walkable_cell(c.x, c.y):
+					return c
+	return Vector2i(-1, -1)
+
+
+func _spawn_hard_clues() -> void:
+	match map_name:
+		"home":
+			_add_clue_node(Vector2i(6, 4), "a1_floor", "a1", "Rachunek za mieszkanie",
+				"Mieszkanie Johnny'ego: 4. piętro",
+				"Rachunek za czynsz: lokal na 4. piętrze. Ktoś tu zgłaszał awarię zasięgu.", false)
+		"roof":
+			_add_clue_node(Vector2i(8, 2), "a1_freq", "a1", "Tabliczka przekaźnika",
+				"Maszt A1: baza 850 MHz, odchyłka po wybuchu +15 MHz",
+				"Tabliczka masztu: pasmo bazowe osiedla 850 MHz. Dopisek markerem: po wybuchu odchyłka +15 MHz. Ostatnie zgłoszenie: lokator z 4. piętra.", true)
+		"stodola":
+			_add_clue_node(Vector2i(2, 2), "a2_farmer", "a2", "Notatka Fasti Farmera",
+				"Farmer: odwróć Z2, a przy czerwonej diodzie też Z4",
+				"Zapiski Farmera: w masztach plantacji odwróć zworkę Z2. Jeśli przy panelu świeci czerwona dioda, odwróć też Z4.", false)
+		"world":
+			var a2 := _find_antenna_cell("a2")
+			if a2.x >= 0:
+				_add_clue_node(nearest_walkable(a2 + Vector2i(-4, -2)), "a2_base", "a2", "Schemat zworek plantacji",
+					"Schemat zworek: Z1 GÓRA, Z2 DÓŁ, Z3 DÓŁ, Z4 GÓRA",
+					"Schemat fabryczny: Z1 = GÓRA, Z2 = DÓŁ, Z3 = DÓŁ, Z4 = GÓRA. Obok panelu mruga czerwona dioda.", true)
+				_add_clue_node(nearest_walkable(a2 + Vector2i(3, 1)), "a2_math", "a2", "Instrukcja sumy kontrolnej",
+					"Lampka zielona: para o sumie 10, pomarańczowa: o różnicy 4",
+					"Instrukcja: gdy świeci zielona lampka, złap parę o sumie 10. Gdy pomarańczowa, parę o różnicy 4.", false)
+		"trybunal":
+			var a3 := _find_antenna_cell("a3")
+			if a3.x >= 0:
+				_add_clue_node(nearest_walkable(a3 + Vector2i(-3, -3)), "a3_main", "a3", "Główny licznik i faza",
+					"Licznik główny: razem 180 kW, faza zewnętrzna +3",
+					"Główny licznik ogrodu: transformatory razem 180 kW. Faza zewnętrzna: +3.", true)
+				_add_clue_node(nearest_walkable(a3 + Vector2i(-2, 3)), "a3_tr", "a3", "Tabliczki transformatorów",
+					"Transformatory: T1 35 kW, T2 85 kW, T3 nieczytelna",
+					"Tabliczki: T1 = 35 kW, T2 = 85 kW. Tabliczka T3 stopiona, nie da się odczytać.", true)
+
+
+func _find_antenna_cell(aid: String) -> Vector2i:
+	for n in entities.get_children():
+		if "antenna_id" in n and n.antenna_id == aid:
+			return n.get_meta("cell", to_cell(n.position))
+	return Vector2i(-1, -1)
+
+
+func _add_clue_node(c: Vector2i, cid: String, grp: String, prm: String, line: String, dlg: String, meter: bool) -> void:
+	if c.x < 0:
+		return
+	var cn := CLUE_NOTE.new()
+	cn.clue_id = cid
+	cn.ant_group = grp
+	cn.title_prompt = prm
+	cn.note_line = line
+	cn.dialog_text = dlg
+	cn.is_meter = meter
+	cn.position = center(c.x, c.y)
+	entities.add_child(cn)
+
+
+func _spawn_coop_extra_enemies(spawns: Array) -> void:
+	var hard := Game.is_hard()
+	var idx := 0
+	for s in spawns:
+		var ch: String = s[0]
+		if ch != "z" and ch != "Z":
+			continue
+		idx += 1
+		# Co-op Normal: +50% extra map mutants; Co-op Hard: +100% extra map mutants (more burnt!)
+		if not hard and (idx % 2 == 1):
+			continue
+		var base_c := Vector2i(int(s[1]), int(s[2]))
+		if player_start.x >= 0 and base_c.distance_to(player_start) < 5.0:
+			continue
+		var extra_key := "%s:coop_%d,%d" % [map_name, base_c.x, base_c.y]
+		if Game.is_gone(extra_key):
+			continue
+		var sc := nearest_walkable(base_c + Vector2i(2 if idx % 2 == 0 else -2, 1 if idx % 3 == 0 else -1))
+		if sc.x < 0 or (player_start.x >= 0 and sc.distance_to(player_start) < 4.5):
+			continue
+		var en := ENEMY.instantiate()
+		en.burnt = (ch == "Z") or (hard and idx % 3 == 0)
+		en.set_meta("cell", sc)
+		en.set_meta("key", extra_key)
+		en.position = feet(sc.x, sc.y)
+		entities.add_child(en)
 
 
 ## Interactive grass tufts on plain grass cells (. and ,), drawn above the ground.

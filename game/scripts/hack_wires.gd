@@ -31,7 +31,7 @@ func _ready() -> void:
 
 
 func open(a: Node, p: Node) -> void:
-	if a.minigame != "wires":
+	if Game.is_hard() or a.minigame != "wires":
 		return
 	antenna = a
 	player = p
@@ -88,14 +88,14 @@ func _process(delta: float) -> void:
 	if not is_instance_valid(player) or player.dead:
 		close()
 		return
-	if _open_t <= 0.0 and (Input.is_action_just_pressed("interact") or Input.is_action_just_pressed("back")):
+	if _open_t <= 0.0 and (Input.is_action_just_pressed(Game.action_for(player, "interact")) or Input.is_action_just_pressed("back")):
 		close()
 		return
-	if Input.is_action_just_pressed("move_up"):
+	if Input.is_action_just_pressed(Game.action_for(player, "move_up")):
 		cursor = wrapi(cursor - 1, 0, 4)
-	if Input.is_action_just_pressed("move_down"):
+	if Input.is_action_just_pressed(Game.action_for(player, "move_down")):
 		cursor = wrapi(cursor + 1, 0, 4)
-	if _open_t <= 0.0 and Input.is_action_just_pressed("accept"):
+	if _open_t <= 0.0 and Input.is_action_just_pressed(Game.action_for(player, "accept")):
 		if picked < 0:
 			pick(cursor)
 		else:
@@ -106,8 +106,10 @@ func _process(delta: float) -> void:
 func _input(event: InputEvent) -> void:
 	if not active or _open_t > 0.0:
 		return
+	if Game.is_shared_p2(player):
+		return  # the mouse belongs to P1
 	if event is InputEventMouseButton and event.pressed and event.button_index == MOUSE_BUTTON_LEFT:
-		var m := get_local_mouse_position()
+		var m: Vector2 = make_input_local(event).position
 		for i in 4:
 			if m.distance_to(_left_pos(i)) < 8.0:
 				pick(i)

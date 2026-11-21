@@ -4,6 +4,8 @@ extends CanvasLayer
 const HackMaze := preload("res://scripts/hack_maze.gd")
 const HackRings := preload("res://scripts/hack_rings.gd")
 const HackWires := preload("res://scripts/hack_wires.gd")
+const HackHard := preload("res://scripts/hack_hard.gd")
+const NotesHUD := preload("res://scripts/notes_hud.gd")
 const Tablet := preload("res://scripts/tablet.gd")
 const StatusBar := preload("res://scripts/status_bar.gd")
 const DialogBox := preload("res://scripts/dialog_box.gd")
@@ -14,6 +16,7 @@ var status: Control
 var crosshair: Control
 var dialog: Control
 var hack: Control
+var notes_box: Control
 var objective: Label
 var prompt: Label
 var hint: Label
@@ -52,7 +55,7 @@ func _ready() -> void:
 	root.add_child(prompt)
 
 	hint = _label(Color("9fd8ff"))
-	hint.position = Vector2(4, 22)
+	hint.position = Vector2(4, 25 if Game.coop else 22)
 	hint.size = Vector2(220, 10)
 	hint.modulate.a = 0.0
 	root.add_child(hint)
@@ -62,10 +65,19 @@ func _ready() -> void:
 	dialog.position = Vector2(3, 150)
 	root.add_child(dialog)
 
+	notes_box = NotesHUD.new()
+	root.add_child(notes_box)
+
 	hack = HackMaze.new()
 	for panel in [hack, HackRings.new(), HackWires.new()]:
 		panel.position = Vector2(VIEW.x - 124 - 4, 6)
 		root.add_child(panel)
+
+	var hard_panel := HackHard.new()
+	hard_panel.notes_hud = notes_box
+	notes_box.hard_panel = hard_panel
+	hard_panel.position = Vector2(VIEW.x - HackHard.PANEL.x - 4, 6)
+	root.add_child(hard_panel)
 
 	crosshair = Control.new()
 	crosshair.set_anchors_preset(Control.PRESET_FULL_RECT)
@@ -119,8 +131,16 @@ func set_hp(v: int, m: int) -> void:
 	status.set_hp(v, m)
 
 
+func set_hp2(v: int, m: int) -> void:
+	status.set_hp2(v, m)
+
+
 func _draw_crosshair() -> void:
 	var m := crosshair.get_local_mouse_position()
+	if Touch.active:
+		if not Touch.aiming or Game.hacking:
+			return
+		m = Touch.aim_pos
 	var c := Color(1, 0.9, 0.6, 0.9) if Game.has_pistol and Game.ammo > 0 else Color(0.8, 0.8, 0.8, 0.5)
 	for d in [Vector2.LEFT, Vector2.RIGHT, Vector2.UP, Vector2.DOWN]:
 		crosshair.draw_line(m + d * 2.0, m + d * 5.0, Color(0, 0, 0, 0.6), 2.0)
@@ -130,14 +150,22 @@ func _draw_crosshair() -> void:
 
 func _process(_delta: float) -> void:
 	crosshair.queue_redraw()
+	var panel_open := Game.hacking or (is_instance_valid(notes_box) and notes_box.visible)
+	objective.visible = not Game.hacking
+	hint.visible = not panel_open
 	var p := Game.player
+	var p2 := Game.player2
 	if is_instance_valid(p) and p.current_interactable and not p.hacking and not p.dead:
 		prompt.text = p.current_interactable.prompt()
+	elif Game.coop and is_instance_valid(p2) and p2.current_interactable and not p2.hacking and not p2.dead:
+		var p2_prompt: String = p2.current_interactable.prompt()
+		prompt.text = p2_prompt.replace("[E]", "[L]") if Game.is_shared_p2(p2) else p2_prompt
 	else:
 		prompt.text = ""
 
 
 func show_big(text: String, color: Color, hold := 1.5) -> void:
+	Net.send_hud("show_big", [text, color, hold])
 	big.text = text
 	big.add_theme_color_override("font_color", color)
 	var tw := create_tween()
@@ -147,6 +175,7 @@ func show_big(text: String, color: Color, hold := 1.5) -> void:
 
 
 func fade(to_alpha: float, time := 0.6) -> Tween:
+	Net.send_hud("fade", [to_alpha, time])
 	var tw := create_tween()
 	tw.tween_property(fader, "color:a", to_alpha, time)
 	return tw

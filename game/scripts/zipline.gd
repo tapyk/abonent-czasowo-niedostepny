@@ -5,13 +5,17 @@ const ZIP_MUTANT := preload("res://scripts/zip_mutant.gd")
 const SPEED := 46.0
 const HANG := 22.0  # cable height above the ground
 const SAG := 7.0
+const GAP := 14.0   # px between two riders going the same way
 
 ## Far end, in the same (parent-local) coordinates as `position`.
 var end_pos := Vector2.ZERO
-var rider: Node2D = null
+## Everyone hanging on the cable: {"node": player, "t": 0..1 along it, "dir": 1 / -1}.
+var riders: Array[Dictionary] = []
+## First rider (or null), for callers that only care whether the line is in use.
+var rider: Node2D:
+	get:
+		return riders[0].node if not riders.is_empty() else null
 var boss: Node2D = null
-var t := 0.0
-var dir := 1
 var _start_cell := Vector2i.ZERO
 var _end_cell := Vector2i.ZERO
 
@@ -53,14 +57,14 @@ func _near_far_end(p: Vector2) -> bool:
 
 
 func get_interact_position() -> Vector2:
-	var p := Game.player
-	if is_instance_valid(p) and _near_far_end(p.global_position):
-		return to_global(end_pos - position) + Vector2(0, -6)
+	for p in Game.living_players():
+		if _near_far_end(p.global_position):
+			return to_global(end_pos - position) + Vector2(0, -6)
 	return global_position + Vector2(0, -6)
 
 
 func can_interact() -> bool:
-	return rider == null
+	return riders.size() < 2
 
 
 func prompt() -> String:
@@ -68,11 +72,10 @@ func prompt() -> String:
 
 
 func interact(player: Node) -> void:
-	if rider != null:
+	if riders.any(func(r): return r.node == player):
 		return
-	rider = player
-	dir = -1 if _near_far_end(player.global_position) else 1
-	t = 0.0 if dir == 1 else 1.0
+	var dir := -1 if _near_far_end(player.global_position) else 1
+	riders.append({"node": player, "t": 0.0 if dir == 1 else 1.0, "dir": dir})
 	player.riding = true
 	player.facing = Vector2.RIGHT if (end_pos.x - position.x) * dir > 0 else Vector2.LEFT
 	Sfx.play("jump", 0.05, -6.0)
@@ -85,35 +88,56 @@ func interact(player: Node) -> void:
 
 
 func _physics_process(delta: float) -> void:
-	if rider == null:
-		return
-	if not is_instance_valid(rider) or rider.dead:
-		rider = null
+	if riders.is_empty():
 		return
 	var span := maxf(length(), 1.0)
-	var blocked: bool = is_instance_valid(boss) and boss.alive and dir == 1 and (boss.u - t) * span < 14.0
-	if not blocked:
-		t = clampf(t + dir * SPEED * delta / span, 0.0, 1.0)
-	rider.global_position = to_global(cable_point(t)) + Vector2(0, HANG - 4)
-	if (dir == 1 and t >= 1.0) or (dir == -1 and t <= 0.0):
-		_dismount()
+	for r in riders.duplicate():
+		var p: Node2D = r.node
+		if not is_instance_valid(p) or p.dead:
+			riders.erase(r)
+			continue
+		var blocked: bool = r.dir == 1 and is_instance_valid(boss) and boss.alive and (boss.u - r.t) * span < GAP
+		# the one who got on later waits for a gap behind the one in front
+		for o in riders:
+			if o == r:
+				break
+			if o.dir == r.dir and (o.t - r.t) * r.dir * span < GAP:
+				blocked = true
+		if not blocked:
+			r.t = clampf(r.t + r.dir * SPEED * delta / span, 0.0, 1.0)
+		p.global_position = to_global(cable_point(r.t)) + Vector2(0, HANG - 4)
+		if (r.dir == 1 and r.t >= 1.0) or (r.dir == -1 and r.t <= 0.0):
+			_dismount(r)
+
+
+## The rider closest to the zipline mutant (heading to the far post), or {}.
+func front_rider() -> Dictionary:
+	var best := {}
+	for r in riders:
+		if r.dir == 1 and (best.is_empty() or r.t > best.t):
+			best = r
+	return best
 
 
 ## Bitten by the mutant: slide back a little.
-func push_back(px: float) -> void:
-	t = clampf(t - dir * px / maxf(length(), 1.0), 0.0, 1.0)
+func push_back(px: float, r: Dictionary) -> void:
+	r.t = clampf(r.t - r.dir * px / maxf(length(), 1.0), 0.0, 1.0)
 
 
-func _dismount() -> void:
-	var r := rider
-	rider = null
-	r.riding = false
-	var c := _end_cell if dir == 1 else _start_cell
+func _dismount(r: Dictionary) -> void:
+	riders.erase(r)
+	var p: Node2D = r.node
+	p.riding = false
+	var c := _end_cell if r.dir == 1 else _start_cell
 	var lvl := get_parent().get_parent()
-	r.global_position = lvl.to_global(lvl.feet(c.x, c.y))
+	# someone already standing on the post's cell: step next to them
+	for op in Game.living_players():
+		if op != p and not op.riding and op.global_position.distance_to(lvl.to_global(lvl.feet(c.x, c.y))) < 8.0:
+			c = lvl.nearest_walkable(c + Vector2i(1, 0)) if lvl.has_method("nearest_walkable") else c
+	p.global_position = lvl.to_global(lvl.feet(c.x, c.y))
 	Sfx.play("step", 0.1, -6.0)
-	if dir == 1:
-		Game.set_checkpoint(Game.current_map, c)
+	if r.dir == 1:
+		Game.set_checkpoint(Game.current_map, _end_cell)
 		get_tree().call_group("story", "on_trigger", "zip_across")
 
 

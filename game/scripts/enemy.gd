@@ -107,7 +107,7 @@ func _wander(delta: float) -> Vector2:
 
 
 func _chase(delta: float) -> Vector2:
-	var p := Game.player
+	var p := Game.nearest_target_player(global_position, true) if Game.coop else Game.player
 	if not is_instance_valid(p) or p.dead:
 		state = State.WANDER
 		return Vector2.ZERO
@@ -126,7 +126,8 @@ func _chase(delta: float) -> Vector2:
 		p.take_damage(damage, global_position)
 	var radius := Game.detection_radius(detect_base, detect_per_bar)
 	var lost := d.length() > maxf(radius * 1.8, 120.0)
-	if not burnt and Game.player_hidden and d.length() > 18.0:
+	var p_hid: bool = p.is_hidden() if p.has_method("is_hidden") else Game.player_hidden
+	if not burnt and p_hid and d.length() > 18.0:
 		lost = true
 	_lose_t = _lose_t + delta if lost else 0.0
 	if _lose_t > 2.5:
@@ -143,18 +144,20 @@ func _axis(v: Vector2) -> Vector2:
 
 
 func _can_sense_player() -> bool:
-	var p := Game.player
-	if not is_instance_valid(p) or p.dead:
-		return false
-	if Game.player_hidden and not burnt:
-		return false
+	var candidates: Array[Node2D] = Game.living_players()
 	var radius := Game.detection_radius(detect_base, detect_per_bar)
 	var from := global_position + Vector2(0, -8)
-	var to: Vector2 = p.global_position + Vector2(0, -8)
-	if from.distance_to(to) > radius:
-		return false
-	var q := PhysicsRayQueryParameters2D.create(from, to, 1)
-	return get_world_2d().direct_space_state.intersect_ray(q).is_empty()
+	for p in candidates:
+		var p_hid: bool = p.is_hidden() if p.has_method("is_hidden") else Game.player_hidden
+		if p_hid and not burnt:
+			continue
+		var to: Vector2 = p.global_position + Vector2(0, -8)
+		if from.distance_to(to) > radius:
+			continue
+		var q := PhysicsRayQueryParameters2D.create(from, to, 1)
+		if get_world_2d().direct_space_state.intersect_ray(q).is_empty():
+			return true
+	return false
 
 
 func alert() -> void:
@@ -196,15 +199,19 @@ func _die() -> void:
 
 
 func _drop_loot() -> void:
-	var pickup: Node2D = preload("res://scenes/pickup.tscn").instantiate()
+	# burnt: a part (on hard also rounds); normal: often rounds, almost always on hard
 	if burnt:
-		pickup.kind = "part"
-	elif randf() < 0.65:
-		pickup.kind = "ammo_small"
-	else:
-		pickup.free()
-		return
-	pickup.position = position + Vector2(0, -4)
+		_drop("part", Vector2(0, -4))
+		if Game.is_hard():
+			_drop("ammo_small", Vector2(8, -2))
+	elif randf() < (0.95 if Game.is_hard() else 0.8):
+		_drop("ammo_small", Vector2(0, -4))
+
+
+func _drop(kind: String, offset: Vector2) -> void:
+	var pickup: Node2D = preload("res://scenes/pickup.tscn").instantiate()
+	pickup.kind = kind
+	pickup.position = position + offset
 	get_parent().call_deferred("add_child", pickup)
 
 

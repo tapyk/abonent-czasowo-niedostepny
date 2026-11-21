@@ -30,6 +30,8 @@ func _ready() -> void:
 
 
 func enqueue(speaker: String, text: String, radio: bool, urgent := false) -> void:
+	if Net.is_client():
+		return  # the host's dialog comes in line by line (mirror_line)
 	# Don't stack the same line (e.g. repeated "no ammo").
 	if _active and _full == text or _queue.any(func(q): return q[1] == text):
 		return
@@ -56,12 +58,29 @@ func _next() -> void:
 		_conv = false
 		Sfx.set_static(0.0)
 		_set_lock()
+		Net.send_dialog_end()
 		return
 	var q: Array = _queue.pop_front()
-	_speaker = q[0]
-	_radio = q[2]
 	_urgent = q[3]
-	_full = _corrupt(q[1]) if _radio else q[1]
+	_show_line(q[0], _corrupt(q[1]) if q[2] else q[1], q[2])
+	Net.send_dialog_line(_speaker, _full, _radio)
+
+
+## Online client: the host started this line (already corrupted on the host).
+func mirror_line(speaker: String, text: String, radio: bool) -> void:
+	_show_line(speaker, text, radio)
+
+
+func mirror_end() -> void:
+	_active = false
+	visible = false
+	Sfx.set_static(0.0)
+
+
+func _show_line(speaker: String, text: String, radio: bool) -> void:
+	_speaker = speaker
+	_radio = radio
+	_full = text
 	_shown = 0.0
 	_hold = 1.8 + _full.length() * 0.045
 	_typed = 0
@@ -86,6 +105,8 @@ func begin_conversation() -> void:
 
 
 func _set_lock() -> void:
+	if Net.is_client():
+		return  # the host's lock comes with its snapshots
 	Game.dialog_lock = _active and _conv
 
 
@@ -117,17 +138,24 @@ func _process(delta: float) -> void:
 	_led += delta
 	if _shown < _full.length():
 		_shown += CPS * delta
-		if Input.is_action_just_pressed("accept") and not Game.hacking:
+		if _skip_pressed():
 			_shown = _full.length()
 		else:
 			_blip()
 		_typed = int(_shown)
-	else:
+	elif not Net.is_client():  # the client waits for the host's next line
 		# More lines waiting -> don't linger on this one.
 		_hold -= delta * (1.6 if not _queue.is_empty() else 1.0)
-		if _hold <= 0.0 or (Input.is_action_just_pressed("accept") and not Game.hacking):
+		if _hold <= 0.0 or _skip_pressed():
 			_next()
 	queue_redraw()
+
+
+## Enter (or online Player 2's Enter, sent to the host) skips typing / the line.
+func _skip_pressed() -> bool:
+	if Game.hacking:
+		return false
+	return Input.is_action_just_pressed("accept") or (Net.is_host() and Net.consume("accept"))
 
 
 ## Undertale-style voice: one blip per newly typed letter (spaces and punctuation stay silent).
