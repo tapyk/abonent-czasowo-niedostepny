@@ -2,8 +2,8 @@ extends StaticBody2D
 ## Story character standing in the world: Fast Farmer, Donald Braun, Mama.
 
 const SHEETS := {
-	"farmer": "res://assets/sprites/characters/npc_old_man.png",
-	"braun": "res://assets/sprites/characters/npc_young_man.png",
+	"farmer": "hd:farmer",
+	"braun": "hd:braun",
 	"mama": "res://assets/sprites/characters/npc_woman.png",
 }
 const NAMES := {"farmer": "Fast Farmer", "braun": "Donald Braun", "mama": "Mama"}
@@ -30,6 +30,7 @@ func _ready() -> void:
 	var sf: SpriteFrames = CharacterArt.npc_frames(SHEETS.get(npc_id, ""), TINTS.get(npc_id, Color.WHITE))
 	_sprite.sprite_frames = sf
 	_sprite.position = Vector2(0, -8)
+	_sprite.offset = sf.get_meta("offset", Vector2.ZERO)
 	_sprite.play(CharacterArt.anim_name(sf, "idle", Vector2.DOWN))
 	add_child(_sprite)
 	# Warm light: safe place / friendly face.

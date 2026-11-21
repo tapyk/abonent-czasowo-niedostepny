@@ -206,7 +206,7 @@ func _autotest() -> void:
 	await _frames(2)
 	_check("thicket blocks without shears", is_instance_valid(thicket) and thicket.collision_layer == 1)
 	var shears := _find_child(func(n): return "kind" in n and n.kind == "sekator")
-	_check("shears lie in the garages", shears != null)
+	_check("shears lie between the blocks", shears != null)
 	p.global_position = shears.global_position
 	await _frames(3)
 	_check("shears picked up", Game.has_sekator)
@@ -306,6 +306,9 @@ func _autotest() -> void:
 	_check("Fast Farmer is in the barn", farmer != null)
 	farmer.talk()
 	_check("farmer met, no cables without parts", Game.flags.has("farmer_met") and not Game.has_kable)
+	await get_tree().process_frame
+	var save := Game.read_save()
+	_check("autosave when meeting the farmer", save.get("map", "") == "stodola" and save.get("flags", {}).has("farmer_met"), str(save.get("map", "")))
 	Game.parts = 3
 	farmer.talk()
 	_check("3 parts traded for the farmer's cables", Game.has_kable and Game.parts == 0, str(Game.parts))

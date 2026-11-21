@@ -6,11 +6,29 @@ static var _cache := {}
 
 const CH := "res://assets/sprites/characters/"
 const EN := "res://assets/sprites/enemies/"
+## The team's own characters, 5-frame strips made by tools/make_characters.py.
+const HD := "res://assets/sprites/characters/hd/"
+const HD_FRAME := 32
 
 
 static func player_frames() -> SpriteFrames:
 	if not _cache.has("player"):
-		var sf := _from_sheet(CH + "player_johnny.png", 8.0)
+		var sf := _from_strip("johnny", 8.0)
+		if sf:
+			# Fists: the drawing without the pistol.
+			sf.add_animation("punch_down")
+			sf.set_animation_loop("punch_down", false)
+			sf.add_frame("punch_down", _strip_frame(HD + "johnny_idle.png", 0))
+			# Aiming poses: shoot_<flat|up|down>_<idle|walk|fire>.
+			for pose in ["flat", "up", "down"]:
+				_add_strip_anims(sf, "johnny_shoot_" + pose, "shoot_%s_" % pose, 8.0, ["idle", "walk"])
+				var fire := _strip_frame(HD + "johnny_shoot_%s_fire.png" % pose, 0)
+				if fire:
+					sf.add_animation("shoot_%s_fire" % pose)
+					sf.set_animation_loop("shoot_%s_fire" % pose, false)
+					sf.add_frame("shoot_%s_fire" % pose, fire)
+		else:
+			sf = _from_sheet(CH + "player_johnny.png", 8.0)
 		_cache["player"] = sf if sf else _placeholder(Color("c9a640"), Color("e0b48a"), Color("3a3a48"))
 	return _cache["player"]
 
@@ -18,7 +36,9 @@ static func player_frames() -> SpriteFrames:
 static func enemy_frames(burnt: bool) -> SpriteFrames:
 	var key := "enemy_burnt" if burnt else "enemy"
 	if not _cache.has(key):
-		var sf := _from_sheet(EN + ("mutant_b.png" if burnt else "mutant_a.png"), 5.0, Color(1.0, 0.6, 0.35) if burnt else Color.WHITE)
+		var sf := _from_strip("mutant_burnt" if burnt else "mutant", 5.0)
+		if sf == null:
+			sf = _from_sheet(EN + ("mutant_b.png" if burnt else "mutant_a.png"), 5.0, Color(1.0, 0.6, 0.35) if burnt else Color.WHITE)
 		if sf == null:
 			sf = _placeholder(Color("5a2a1a"), Color("ff7a2a"), Color("2a1a14")) if burnt \
 				else _placeholder(Color("4f6b3a"), Color("9fb08a"), Color("2f3a28"))
@@ -29,7 +49,11 @@ static func enemy_frames(burnt: bool) -> SpriteFrames:
 static func npc_frames(path: String, tint := Color.WHITE) -> SpriteFrames:
 	var key := "npc_" + path
 	if not _cache.has(key):
-		var sf := _from_sheet(path, 4.0, tint) if path != "" else null
+		var sf: SpriteFrames = null
+		if path.begins_with("hd:"):
+			sf = _from_strip(path.trim_prefix("hd:"), 4.0)
+		elif path != "":
+			sf = _from_sheet(path, 4.0, tint)
 		_cache[key] = sf if sf else _placeholder(Color("7a6a9a"), Color("e0b48a"), Color("3a3a48"))
 	return _cache[key]
 
@@ -58,6 +82,44 @@ static func _from_sheet(path: String, fps: float, tint := Color.WHITE) -> Sprite
 			else:
 				sf.add_frame(a, fr.call(0))
 	return sf
+
+
+## Front-view character from <name>_idle.png: idle (stand + breath), walk, attack, hurt, die.
+static func _from_strip(name: String, fps: float) -> SpriteFrames:
+	var path := HD + name + "_idle.png"
+	if Art.tex(path) == null:
+		return null
+	var sf := SpriteFrames.new()
+	sf.remove_animation("default")
+	_add_strip_anims(sf, name + "_idle", "", fps, ["idle", "walk", "attack", "hurt", "die"])
+	var img := Art.image(path, Rect2i(0, 0, HD_FRAME, HD_FRAME))
+	var bottom := img.get_used_rect().end.y
+	sf.set_meta("offset", Vector2(0, 8 + HD_FRAME / 2 - bottom))
+	return sf
+
+
+## Adds <prefix><kind>_down animations from one strip.
+static func _add_strip_anims(sf: SpriteFrames, file: String, prefix: String, fps: float, kinds: Array) -> void:
+	var path := HD + file + ".png"
+	if Art.tex(path) == null:
+		return
+	var order := {"idle": [0, 0, 0, 4, 4, 4], "walk": [1, 2, 3, 0], "attack": [1, 3], "hurt": [0], "die": [0]}
+	for kind in kinds:
+		var a: String = prefix + kind + "_down"
+		sf.add_animation(a)
+		sf.set_animation_speed(a, 4.0 if kind == "idle" else fps * (2.0 if kind == "attack" else 1.0))
+		sf.set_animation_loop(a, kind in ["idle", "walk"])
+		for i in order[kind]:
+			var t := _strip_frame(path, i)
+			if kind == "die":
+				var im := t.get_image()
+				im.rotate_90(CLOCKWISE)
+				t = ImageTexture.create_from_image(im)
+			sf.add_frame(a, t)
+
+
+static func _strip_frame(path: String, i: int) -> Texture2D:
+	return Art.region(path, Vector2i(i, 0), Vector2i(HD_FRAME, HD_FRAME))
 
 
 ## Best animation for kind + facing direction.
@@ -93,7 +155,10 @@ static func muzzle_flash() -> Texture2D:
 
 
 static func corpse() -> Texture2D:
-	var t := Art.tex(CH + "npc_technician_dead.png")
+	var t := Art.tex(HD + "worker_dead.png")
+	if t:
+		return t
+	t = Art.tex(CH + "npc_technician_dead.png")
 	if t:
 		return t
 	var img := Image.create_empty(20, 10, false, Image.FORMAT_RGBA8)

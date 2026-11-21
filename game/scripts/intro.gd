@@ -20,7 +20,12 @@ var _rang := false
 var _messaged := false
 var _radioed := false
 var _rng := RandomNumberGenerator.new()
-var _buildings: Array = []            # [x, w, h]
+var _buildings: Array = []            # [x, w, h] (tower pictures scaled to w x h)
+var _tower: Texture2D
+var _curn: Texture2D
+const TOWER_SRC := Rect2(29, 0, 74, 128)   # used part of wiezowiec.png
+const CURN_SRC := Rect2(32, 36, 170, 92)   # used part of curn.png
+const CURN_SCALE := 0.36
 var _antennas: Array = []             # [pos, lit_time]
 var _people: Array = []               # [x, speed, mutate_time]
 var _stars: Array = []
@@ -31,12 +36,16 @@ var _typed := [0, 0, 0]               # letters already voiced per Mama line
 func _ready() -> void:
 	set_anchors_preset(Control.PRESET_FULL_RECT)
 	_rng.seed = 2026
+	_tower = Art.tex("res://assets/sprites/buildings/wiezowiec.png")
+	_curn = Art.tex("res://assets/sprites/buildings/curn.png")
 	var x := 0.0
 	while x < W:
-		var w := _rng.randf_range(14, 30)
-		var h := _rng.randf_range(18, 52)
-		if absf(x + w / 2.0 - CURN.x) < 26.0:
-			h = 10.0
+		var s := _rng.randf_range(0.18, 0.42)
+		var w := TOWER_SRC.size.x * s
+		var h := TOWER_SRC.size.y * s
+		if absf(x + w / 2.0 - CURN.x) < 40.0:
+			x += 6.0  # leave the horizon around CURN open
+			continue
 		_buildings.append([x, w, h])
 		if _rng.randf() < 0.55 and h > 20.0:
 			_antennas.append([Vector2(x + w / 2.0, 140 - h - 8), -1.0])
@@ -160,13 +169,17 @@ func _draw_city() -> void:
 		draw_rect(Rect2(0, y, W, 4), top.lerp(bottom, y / 140.0))
 	for s in _stars:
 		draw_rect(Rect2(s, Vector2(1, 1)), Color(1, 1, 1, 0.6 * (1.0 - dust)))
-	# CURN: dome + mast
-	if _t < T_FLASH:
+	# CURN: the building picture on the horizon (dark at night, burnt after the blast)
+	if _curn:
+		var cs := CURN_SRC.size * CURN_SCALE
+		var tint := Color(0.5, 0.55, 0.75) if _t < T_FLASH else Color(0.35, 0.22, 0.2)
+		draw_texture_rect_region(_curn, Rect2(Vector2(CURN.x - cs.x / 2.0, 140 - cs.y), cs), CURN_SRC, tint)
+	else:
 		draw_circle(CURN + Vector2(0, 6), 12.0, Color("1a2030"))
-		draw_rect(Rect2(CURN.x - 1, CURN.y - 30, 2, 30), Color("2a3040"))
+	if _t < T_FLASH:
 		if fmod(_t, 1.0) < 0.6:
-			draw_rect(Rect2(CURN.x - 2, CURN.y - 32, 4, 3), Color("8ab0ff"))
-		_text_small("CURN", CURN + Vector2(-10, 22))
+			draw_rect(Rect2(CURN.x - 2, CURN.y - 2, 4, 3), Color("8ab0ff"))
+		_text_small("CURN", CURN + Vector2(-10, 30))
 	else:
 		_draw_blast(dust)
 	# dust clouds rolling over
@@ -182,16 +195,23 @@ func _draw_city() -> void:
 			if r > 0.0:
 				draw_arc(CURN, r, PI, TAU, 48, Color(0.7, 0.3, 1.0, 0.35 - k * 0.1), 1.5)
 	# skyline
+	var night := Color(0.32, 0.36, 0.5).lerp(Color(0.2, 0.14, 0.16), dust)
 	for b in _buildings:
-		draw_rect(Rect2(b[0], 140 - b[2], b[1], b[2] + 40), Color("0b0c12"))
-		var wy: float = 140 - b[2] + 4
-		while wy < 136.0:
-			var wx: float = b[0] + 3
-			while wx < b[0] + b[1] - 3:
-				if hash(Vector2(wx, wy)) % 5 == 0 and _t < T_FLASH + 0.5:
-					draw_rect(Rect2(wx, wy, 2, 2), Color("e8c060"))
-				wx += 5.0
-			wy += 6.0
+		var r := Rect2(b[0], 140 - b[2], b[1], b[2])
+		if _tower:
+			draw_texture_rect_region(_tower, r, TOWER_SRC, night)
+		else:
+			draw_rect(Rect2(r.position, r.size + Vector2(0, 40)), Color("0b0c12"))
+		# a few lit windows until the power goes
+		if _t < T_FLASH + 0.5:
+			var wy: float = r.position.y + 5
+			while wy < 134.0:
+				var wx: float = b[0] + 3
+				while wx < b[0] + b[1] - 3:
+					if hash(Vector2(wx, wy)) % 7 == 0:
+						draw_rect(Rect2(wx, wy, 2, 2), Color("e8c060"))
+					wx += 5.0
+				wy += 6.0
 	for a in _antennas:
 		var p: Vector2 = a[0]
 		draw_line(p, p + Vector2(0, 8), Color("2a2e36"), 1.0)

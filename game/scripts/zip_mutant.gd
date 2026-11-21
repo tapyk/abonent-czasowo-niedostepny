@@ -23,7 +23,8 @@ func _ready() -> void:
 	_sprite.sprite_frames = sf
 	_sprite.play(CharacterArt.anim_name(sf, "walk", Vector2.LEFT))
 	_sprite.flip_h = CharacterArt.flip_for(sf, Vector2.LEFT)
-	_sprite.scale = Vector2(1.25, 1.25)
+	_sprite.scale = Vector2(1.25, 1.25) if not sf.has_meta("offset") else Vector2.ONE
+	_sprite.offset = sf.get_meta("offset", Vector2.ZERO)
 	_sprite.position = Vector2(0, -10)
 	add_child(_sprite)
 	var glow := PointLight2D.new()

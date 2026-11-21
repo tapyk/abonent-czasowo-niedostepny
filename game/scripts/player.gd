@@ -41,6 +41,10 @@ var _invuln := 0.0
 var _reveal := 0.0
 var _step_t := 0.0
 var _melee_anim := 0.0
+## Muzzle-flash frame of the aiming pose (drawn pistol art) after a shot.
+var _fire_flash := 0.0
+var _melee_dir := Vector2.RIGHT
+const SPRITE_POS := Vector2(0, -8)
 var _knock := Vector2.ZERO
 var _since_hurt := 99.0
 var _regen_acc := 0.0
@@ -53,6 +57,7 @@ func _ready() -> void:
 	add_to_group("player")
 	Game.player = self
 	sprite.sprite_frames = CharacterArt.player_frames()
+	sprite.offset = sprite.sprite_frames.get_meta("offset", Vector2.ZERO)
 	flash.texture = CharacterArt.muzzle_flash()
 	flash.material = Art.unshaded()
 	flash.visible = false
@@ -70,6 +75,7 @@ func _physics_process(delta: float) -> void:
 	_invuln -= delta
 	_reveal -= delta
 	_melee_anim -= delta
+	_fire_flash -= delta
 	_aim_t -= delta
 
 	Game.player_hidden = in_bush > 0 and _reveal <= 0.0 and not dead
@@ -154,8 +160,11 @@ func shoot(dir := Vector2.ZERO) -> void:
 	Sfx.play("shoot")
 	_reveal = 1.5
 	Game.make_noise(global_position, 150.0)
-	flash.visible = true
-	get_tree().create_timer(0.06).timeout.connect(func(): flash.visible = false)
+	if sprite.sprite_frames.has_animation("shoot_flat_fire"):
+		_fire_flash = 0.08  # the pose frame has its own flash
+	else:
+		flash.visible = true
+		get_tree().create_timer(0.06).timeout.connect(func(): flash.visible = false)
 
 
 func melee(dir := Vector2.ZERO) -> void:
@@ -165,6 +174,7 @@ func melee(dir := Vector2.ZERO) -> void:
 		return
 	_melee_cd = MELEE_COOLDOWN
 	_melee_anim = 0.2
+	_melee_dir = dir
 	Sfx.play("melee")
 	var hit := false
 	for e in get_tree().get_nodes_in_group("enemies"):
@@ -309,7 +319,24 @@ func _animate(dir: Vector2) -> void:
 	var look := facing
 	if absf(look.x) > 0.1 and absf(look.y) > 0.1:
 		look = Vector2(signf(look.x), 0)
-	var anim := CharacterArt.anim_name(sprite.sprite_frames, kind, look)
-	sprite.flip_h = CharacterArt.flip_for(sprite.sprite_frames, look)
+	var sf := sprite.sprite_frames
+	var anim := CharacterArt.anim_name(sf, kind, look)
+	sprite.flip_h = CharacterArt.flip_for(sf, look)
+	sprite.position = SPRITE_POS
+	if kind == "attack" and sf.has_animation("punch_down"):
+		# Fists (no pistol in hand) with a short lunge toward the hit.
+		anim = "punch_down"
+		sprite.position += _melee_dir * 3.0 * clampf(_melee_anim / 0.2, 0.0, 1.0)
+		if absf(_melee_dir.x) > 0.05:
+			sprite.flip_h = _melee_dir.x < 0.0
+	elif not dead and Game.has_pistol and sf.has_animation("shoot_flat_idle"):
+		# Pistol in hand: pose follows the aim (the flashlight / cursor), the
+		# muzzle-flash frame right after a shot, mirrored when aiming left.
+		var aim := Vector2.from_angle(facing_node.rotation)
+		var up := atan2(-aim.y, absf(aim.x))
+		var pose := "up" if up > 0.45 else ("down" if up < -0.45 else "flat")
+		anim = "shoot_%s_%s" % [pose, "fire" if _fire_flash > 0.0 else kind]
+		if absf(aim.x) > 0.05:
+			sprite.flip_h = aim.x < 0.0
 	if sprite.animation != anim:
 		sprite.play(anim)

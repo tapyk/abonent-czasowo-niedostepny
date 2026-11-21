@@ -45,6 +45,7 @@ func _ready() -> void:
 	walk_speed *= diff
 	chase_speed *= diff
 	sprite.sprite_frames = CharacterArt.enemy_frames(burnt)
+	sprite.offset = sprite.sprite_frames.get_meta("offset", Vector2.ZERO)
 	glow.visible = burnt
 	glow.texture = Art.light_radial(64)
 	_mark = Label.new()

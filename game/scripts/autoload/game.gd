@@ -44,6 +44,8 @@ var _saved := {}
 
 ## Dev/test options parsed from the command line (after `--`).
 var dev := {}
+## Save file loaded on the title screen / pause menu, applied by main.gd on start.
+var pending_load := {}
 
 
 func _ready() -> void:
@@ -169,6 +171,64 @@ func restore_state() -> void:
 	flags = _saved.flags.duplicate(true)
 	error_boost = 0.0
 	stats_changed.emit()
+
+
+# --- save file ------------------------------------------------------------------
+
+func save_path() -> String:
+	return "user://save_test.json" if dev.has("autotest") else "user://save.json"
+
+
+func has_save() -> bool:
+	return FileAccess.file_exists(save_path())
+
+
+## Writes the progress plus where Johnny stands (map, cell) and his HP.
+func save_game(map_name: String, cell: Vector2i, hp: int) -> bool:
+	var d := {
+		"version": 1, "map": map_name, "cell": [cell.x, cell.y], "hp": hp,
+		"respawn_map": respawn_map, "respawn_cell": [respawn_cell.x, respawn_cell.y],
+		"ammo": ammo, "parts": parts,
+		"has_pistol": has_pistol, "has_sekator": has_sekator, "has_cable": has_cable, "has_kable": has_kable,
+		"disabled_ids": disabled_ids, "gone": gone.keys(), "flags": flags,
+	}
+	var f := FileAccess.open(save_path(), FileAccess.WRITE)
+	if f == null:
+		return false
+	f.store_string(JSON.stringify(d, "\t"))
+	return true
+
+
+func read_save() -> Dictionary:
+	if not has_save():
+		return {}
+	var d = JSON.parse_string(FileAccess.get_file_as_string(save_path()))
+	return d if d is Dictionary else {}
+
+
+## Puts a read save into the game state (after new_game()); returns map / cell / hp.
+func apply_save(d: Dictionary) -> Dictionary:
+	ammo = int(d.get("ammo", 0))
+	parts = int(d.get("parts", 0))
+	has_pistol = bool(d.get("has_pistol", false))
+	has_sekator = bool(d.get("has_sekator", false))
+	has_cable = bool(d.get("has_cable", false))
+	has_kable = bool(d.get("has_kable", false))
+	disabled_ids.clear()
+	for id in d.get("disabled_ids", []):
+		disabled_ids.append(str(id))
+	disabled_count = disabled_ids.size()
+	gone.clear()
+	for k in d.get("gone", []):
+		gone[str(k)] = true
+	flags = d.get("flags", {})
+	respawn_map = str(d.get("respawn_map", "home"))
+	var rc: Array = d.get("respawn_cell", [3, 5])
+	respawn_cell = Vector2i(int(rc[0]), int(rc[1]))
+	save_state()
+	stats_changed.emit()
+	var c: Array = d.get("cell", [-1, -1])
+	return {"map": str(d.get("map", "home")), "cell": Vector2i(int(c[0]), int(c[1])), "hp": int(d.get("hp", -1))}
 
 
 func add_error() -> void:

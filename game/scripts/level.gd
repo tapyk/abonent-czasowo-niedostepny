@@ -21,12 +21,13 @@ const GROUND := {".": "grass", ",": "grass2", ":": "dirt", "=": "road", "_": "si
 	"f": "field", "r": "runway", "o": "floor", "d": "sand", "j": "pier", "g": "plaza",
 	"n": "plantation"}
 const SOLID := {"#": "wall", "R": "roof", "T": "tree", "F": "fence", "w": "iwall",
-	"k": "kitchen", "e": "bed", "t": "table", "v": "plant", "|": "garage", "y": "palm", "x": "rock"}
+	"k": "kitchen", "e": "bed", "t": "table", "v": "plant", "|": "garage", "y": "palm", "x": "rock",
+	"Q": "solid"}
 ## Low obstacles: stop walkers (physics layer 6, value 32) but not bullets or sight.
 const LOW := {"~": "water", "^": "chasm"}
 ## Keys that get a collision box.
 const COLLIDE := ["wall", "roof", "tree", "fence", "iwall", "kitchen", "bed", "table", "plant", "garage",
-	"palm", "rock"]
+	"palm", "rock", "solid"]
 const COLLIDE_LOW := ["water", "chasm"]
 const LOW_LAYER := 32
 
@@ -68,7 +69,9 @@ func build(name: String) -> void:
 					_add("above", x, y - 1, "canopy")
 			else:
 				var warp := _warp_def(ch)
-				if not warp.is_empty() and _between_walls(x, y):
+				if not warp.is_empty() and _between_walls(x, y) and cell(x - 1, y) == "Q":
+					_add("ground", x, y, _ground_under(x, y))  # the building picture has the door
+				elif not warp.is_empty() and _between_walls(x, y):
 					_add("ground", x, y, _ground_under(x, y))
 					_add("walls", x, y, "door")
 				elif not warp.is_empty() and map_name == "home":
@@ -91,8 +94,27 @@ func build(name: String) -> void:
 		var layer: TileMapLayer = {"ground": ground, "walls": walls, "above": above}[layer_name]
 		for e in _cells[layer_name]:
 			layer.set_cell(e[0], 0, Vector2i(_keys.find(e[1]), 0))
+	_place_buildings()
 	for s in spawns:
 		_spawn(s[0], s[1], s[2])
+
+
+## Building pictures from the `buildings` header (see the top of this file).
+func _place_buildings() -> void:
+	if not header.has("buildings"):
+		return
+	for b in str(header["buildings"]).split(";"):
+		var p: PackedStringArray = b.strip_edges().split(":")
+		var tex := Art.tex("res://assets/sprites/buildings/%s.png" % p[0])
+		if tex == null:
+			continue
+		var s := Sprite2D.new()
+		s.name = "Building_" + p[0]
+		s.texture = tex
+		s.centered = false
+		s.position = Vector2(int(p[1]) * T, int(p[2]) * T)
+		s.z_index = -8
+		add_child(s)
 
 
 func bounds() -> Rect2:
@@ -334,6 +356,8 @@ func _make_tileset() -> TileSet:
 
 
 func _tile_image(key: String) -> Image:
+	if key == "solid":
+		return Image.create_empty(T, T, false, Image.FORMAT_RGBA8)
 	var t: Texture2D = TileArt.get_tile(key)
 	if t:
 		var src_img := t.get_image()

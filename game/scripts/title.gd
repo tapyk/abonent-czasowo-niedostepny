@@ -2,6 +2,7 @@ extends Control
 ## Title screen.
 
 var _t := 0.0
+var _loading := false
 
 
 func _ready() -> void:
@@ -16,12 +17,19 @@ func _process(delta: float) -> void:
 	queue_redraw()
 	if Input.is_action_just_pressed("accept"):
 		_start()
+	elif Input.is_physical_key_pressed(KEY_W) and Game.has_save() and not _loading:
+		_loading = true
+		Game.pending_load = Game.read_save()
+		Sfx.set_static(0.0)
+		get_tree().change_scene_to_file("res://scenes/main.tscn")
 
 
 func _start() -> void:
 	Sfx.set_static(0.0)
 	# Dev runs (autotest / screenshots / autostart) skip the intro cutscene.
 	var dev := Game.dev.has("autostart") or Game.dev.has("autotest") or Game.dev.has("shot")
+	if Game.dev.has("load"):
+		Game.pending_load = Game.read_save()  # --load: start from the save file
 	get_tree().change_scene_to_file("res://scenes/main.tscn" if dev else "res://scenes/intro.tscn")
 
 
@@ -41,7 +49,9 @@ func _draw() -> void:
 	_center(f, "Wszyscy przywracają zasięg.", 62, fs, Color("ff6a5a"))
 	_center(f, "My go wyłączamy.", 72, fs, Color("ff6a5a"))
 	if fmod(_t, 1.0) < 0.65:
-		_center(f, "[ENTER] start", 98, fs, Color("ffe08a"))
+		_center(f, "[ENTER] nowa gra", 94, fs, Color("ffe08a"))
+	if Game.has_save():
+		_center(f, "[W] wczytaj zapis", 106, fs, Color("8fe0a0"))
 	_center(f, "WSAD / strzałki  ruch", 124, fs, Color("8a929c"))
 	_center(f, "LPM strzał w kursor   PPM cios", 134, fs, Color("8a929c"))
 	_center(f, "E akcja    ENTER dialog", 144, fs, Color("8a929c"))

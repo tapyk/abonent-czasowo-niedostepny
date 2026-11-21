@@ -27,9 +27,18 @@ func _ready() -> void:
 	add_child(preload("res://scripts/pause_menu.gd").new())
 	if not Game.dev.has("autotest"):
 		Input.mouse_mode = Input.MOUSE_MODE_HIDDEN  # HUD draws a crosshair instead
-	var start: String = str(Game.dev.get("map", "home"))
-	load_map(start)
-	_intro()
+	if not Game.pending_load.is_empty():
+		var s := Game.apply_save(Game.pending_load)
+		Game.pending_load = {}
+		load_map(s.map, s.cell)
+		if s.hp > 0:
+			player.hp = 0
+			player.heal(s.hp)
+		hud.show_big("WCZYTANO", Color("8fe0a0"), 1.0)
+	else:
+		var start: String = str(Game.dev.get("map", "home"))
+		load_map(start)
+		_intro()
 	DevTools.attach(self)
 
 
@@ -136,7 +145,7 @@ func objective() -> String:
 		if m == "roof":
 			return "Zhakuj panel anteny [E]." if Game.has_cable else "Znajdź kabel (technik na dachu)."
 		if not Game.has_sekator:
-			return "Znajdź sekator. Może w garażach?" if Game.flags.has("thicket_seen") \
+			return "Znajdź sekator. Może między blokami?" if Game.flags.has("thicket_seen") \
 				else "Blok naprzeciwko: czerwone światło."
 		return "Przetnij gąszcz, wejdź do bloku."
 	if not Game.has_kable:
@@ -248,9 +257,24 @@ func on_npc(id: String) -> void:
 			_talk_mama()
 
 
+## Esc menu save / autosave. Not while riding, sailing or switching maps.
+func can_save() -> bool:
+	return not (_busy or _ending or player.dead or player.riding or Game.hacking)
+
+
+func save_game(auto := false) -> bool:
+	if not can_save():
+		return false
+	var ok := Game.save_game(Game.current_map, level.to_cell(player.global_position), player.hp)
+	if ok and auto:
+		hud.show_big("AUTOZAPIS", Color("8fe0a0"), 0.8)
+	return ok
+
+
 func _talk_farmer() -> void:
 	if not Game.flags.has("farmer_met"):
 		Game.flags["farmer_met"] = true
+		save_game.call_deferred(true)
 		Game.say_line("Farmer", "Stój! Telefon włączony?")
 		Game.say_line("Johnny", "…Już nie.")
 		Game.say_line("Farmer", "Dwadzieścia lat mówiłem, że ta sieć nas zje.")
@@ -264,6 +288,7 @@ func _talk_farmer() -> void:
 		Game.take_parts(PARTS_NEEDED)
 		Game.has_kable = true
 		Game.stats_changed.emit()
+		save_game.call_deferred(true)
 		Sfx.play("pickup")
 		hud.show_big("KABLE OD FARMERA", Color("8fe0a0"), 0.8)
 		Game.say_line("Farmer", "Trzy. Masz kable. Pasują do plantacji i Trybunału.")
