@@ -75,6 +75,7 @@ func _ready() -> void:
 
 	var hard_panel := HackHard.new()
 	hard_panel.notes_hud = notes_box
+	notes_box.hard_panel = hard_panel
 	hard_panel.position = Vector2(VIEW.x - HackHard.PANEL.x - 4, 6)
 	root.add_child(hard_panel)
 

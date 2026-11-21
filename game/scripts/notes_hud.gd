@@ -1,8 +1,9 @@
 extends Control
-## Crisp pixel-art Clues / Cheat-sheet overlay for Hard Mode (320x180 viewport).
+## Notes box for the hard mode (left side).
 
-const BOX := Rect2(4, 25, 136, 120)
+const BOX := Rect2(4, 25, 156, 148)
 
+var hard_panel: Control = null
 var manual_open := false
 var hide_in_hack := false
 var active_group := ""
@@ -56,30 +57,40 @@ func _current_group() -> String:
 	return ""
 
 
-func _missing_hints(grp: String) -> Array[String]:
+func _missing_hints(grp: String, skip: Array = []) -> Array[String]:
 	var miss: Array[String] = []
+	var all := _missing_all(grp)
+	for k in all:
+		if not skip.has(k):
+			miss.append(all[k])
+	return miss
+
+
+## clue id -> where to find it, for the clues of `grp` not collected yet.
+func _missing_all(grp: String) -> Dictionary:
+	var miss := {}
 	match grp:
 		"a1":
 			if not Game.note_ids.has("a1_floor"):
-				miss.append("Sprawdź rachunek w mieszkaniu lub tabliczkę dachu")
+				miss["a1_floor"] = "Sprawdź rachunek w mieszkaniu lub tabliczkę dachu"
 			if not Game.note_ids.has("a1_tech"):
-				miss.append("Przeszukaj technika na dachu [E]")
+				miss["a1_tech"] = "Przeszukaj technika na dachu [E]"
 			if not Game.note_ids.has("a1_freq"):
-				miss.append("Sprawdź tabliczkę obok anteny na dachu [E]")
+				miss["a1_freq"] = "Sprawdź tabliczkę obok anteny na dachu [E]"
 		"a2":
 			if not Game.note_ids.has("a2_farmer"):
-				miss.append("Pogadaj z Fasti Farmerem w stodole")
+				miss["a2_farmer"] = "Pogadaj z Fasti Farmerem w stodole"
 			if not Game.note_ids.has("a2_base"):
-				miss.append("Przeczytaj schemat zworek przy palmach [E]")
+				miss["a2_base"] = "Przeczytaj schemat zworek przy palmach [E]"
 			if not Game.note_ids.has("a2_math"):
-				miss.append("Przeczytaj instrukcję lampki obok Anteny 2 [E]")
+				miss["a2_math"] = "Przeczytaj instrukcję lampki obok Anteny 2 [E]"
 		"a3":
 			if not Game.note_ids.has("a3_rule"):
-				miss.append("Braun w Trybunale zna kolejność")
+				miss["a3_rule"] = "Braun w Trybunale zna kolejność"
 			if not Game.note_ids.has("a3_main"):
-				miss.append("Odczytaj główny licznik w ogrodzie (północ) [E]")
+				miss["a3_main"] = "Odczytaj główny licznik w ogrodzie (północ) [E]"
 			if not Game.note_ids.has("a3_tr"):
-				miss.append("Odczytaj tabliczki T1-T3 w ogrodzie (południe) [E]")
+				miss["a3_tr"] = "Odczytaj tabliczki T1-T3 w ogrodzie (południe) [E]"
 	return miss
 
 
@@ -97,23 +108,37 @@ func _draw() -> void:
 	draw_line(BOX.position + Vector2(3, 12), BOX.position + Vector2(BOX.size.x - 3, 12), Color(0.35, 0.6, 0.75, 0.5), 1.0)
 
 	var y := BOX.position.y + 21.0
-	var w := BOX.size.x - 10.0
-	var list := Game.clues_for(grp if Game.hacking else "")
+	var skip: Array = []
+	if Game.hacking and is_instance_valid(hard_panel) and hard_panel.active:
+		y = _section(f, fs, y, "CO ZROBIĆ:", Color("9fd8ff"), hard_panel.how_to(), Color("ffffff"), "")
+		y += 2.0
+		skip = hard_panel.COVERED_BY_HOW_TO
+	var list: Array[String] = []
+	for n in Game.notes:
+		if (not Game.hacking or n.get("group", "") == grp) and not skip.has(n.get("id", "")):
+			list.append(str(n.get("text", "")))
 	if list.is_empty():
-		draw_multiline_string(f, Vector2(BOX.position.x + 5, y), "Brak zebranych notatek.", HORIZONTAL_ALIGNMENT_LEFT, w, fs, -1, Color("9aa3ad"))
-		y += 12.0
+		y = _section(f, fs, y, "NOTATKI:", Color("9fd8ff"), ["Brak zebranych notatek."] as Array[String], Color("9aa3ad"), "")
 	else:
-		for item in list:
-			if y > BOX.end.y - 16.0:
-				break
-			var lines := maxi(1, roundi(f.get_multiline_string_size("+ " + item, HORIZONTAL_ALIGNMENT_LEFT, w, fs).y / 9.0))
-			draw_multiline_string(f, Vector2(BOX.position.x + 5, y), "+ " + item, HORIZONTAL_ALIGNMENT_LEFT, w, fs, -1, Color("ffe89a"))
-			y += lines * 9.0 + 3.0
+		y = _section(f, fs, y, "NOTATKI:", Color("9fd8ff"), list, Color("ffe89a"), "+ ")
+	var missing := _missing_hints(grp if grp != "" else "a1", skip)
+	if not missing.is_empty():
+		_section(f, fs, y + 2.0, "BRAKUJE:", Color("ff8a6a"), missing, Color("ff8a6a"), "? ")
 
-	var missing := _missing_hints(grp if grp != "" else "a1")
-	for m in missing:
-		if y > BOX.end.y - 8.0:
+
+## A titled list; returns the y below it. Stops at the bottom of the box.
+func _section(f: Font, fs: int, y: float, title: String, title_col: Color, items: Array[String],
+		col: Color, bullet: String) -> float:
+	var w := BOX.size.x - 10.0
+	if y > BOX.end.y - 12.0:
+		return y
+	draw_string(f, Vector2(BOX.position.x + 5, y), title, HORIZONTAL_ALIGNMENT_LEFT, -1, fs, title_col)
+	y += 10.0
+	for item in items:
+		var text := bullet + item
+		var lines := maxi(1, roundi(f.get_multiline_string_size(text, HORIZONTAL_ALIGNMENT_LEFT, w, fs).y / 9.0))
+		if y + (lines - 1) * 9.0 > BOX.end.y - 4.0:
 			break
-		var lines := maxi(1, roundi(f.get_multiline_string_size("? " + m, HORIZONTAL_ALIGNMENT_LEFT, w, fs).y / 9.0))
-		draw_multiline_string(f, Vector2(BOX.position.x + 5, y), "? " + m, HORIZONTAL_ALIGNMENT_LEFT, w, fs, -1, Color("ff8a6a"))
-		y += lines * 9.0 + 2.0
+		draw_multiline_string(f, Vector2(BOX.position.x + 5, y), text, HORIZONTAL_ALIGNMENT_LEFT, w, fs, -1, col)
+		y += lines * 9.0 + 1.0
+	return y

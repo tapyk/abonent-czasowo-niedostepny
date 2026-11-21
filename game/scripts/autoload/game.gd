@@ -127,14 +127,6 @@ func add_clue(id: String, group: String, text: String) -> bool:
 	return true
 
 
-func clues_for(group: String) -> Array[String]:
-	var out: Array[String] = []
-	for n in notes:
-		if n.get("group", "") == group or group == "":
-			out.append(str(n.get("text", "")))
-	return out
-
-
 ## Input action for player `p`.
 func action_for(p: Node, action: String) -> String:
 	if not coop or Net.active():

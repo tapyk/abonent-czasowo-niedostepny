@@ -2,6 +2,9 @@ extends Control
 ## Hard-mode multi-stage antenna hacking panel drawn in authentic 320x180 pixel art.
 
 const PANEL := Vector2(150, 142)
+const STAGES := {"a1": 2, "a2": 3, "a3": 2}
+## Clues whose rule how_to() already spells out.
+const COVERED_BY_HOW_TO := ["a1_tech", "a2_math", "a3_rule"]
 const PAIRS := [[3, 7], [8, 4], [6, 4], [9, 5], [2, 8], [7, 3], [5, 2], [4, 9]]
 
 var antenna: Node = null
@@ -89,11 +92,44 @@ func _default_status() -> String:
 			return "Wpisz PIN i pasmo MHz" if stage == 0 else "Trzymaj tłumienie (uwaga TEMP!)"
 		"a2":
 			if stage == 0: return "Ustaw 4 zworki (dioda CZERWONA!)"
-			if stage == 1: return "Łap pary zgodne z kolorem lampki"
+			if stage == 1: return "Wciśnij, gdy para pasuje do lampki"
 			return "Przytrzymaj rozładowanie"
 		"a3":
-			return "Odłącz T1-T3 (od max kW) i fazę" if stage == 0 else "Klikaj wybijające bezpieczniki!"
+			return "Odłącz T1-T3 i ustaw fazę" if stage == 0 else "Klikaj wybijające bezpieczniki!"
 	return ""
+
+
+## What to do in this stage, step by step.
+func how_to() -> Array[String]:
+	match ant_id:
+		"a1":
+			if stage == 0:
+				return ["1. PIN: 407 + numer piętra Johnny'ego (rachunek).",
+					"2. Pasmo: baza z tabliczki masztu + odchyłka.",
+					"3. AUTORYZUJ."]
+			return ["Trzymaj TŁUM do 100% wygaszania.",
+				"TEMP prawie pełna? Puść na chwilę.",
+				"DRYF (czerwone pasmo): wróć suwakiem na swoje pasmo."]
+		"a2":
+			if stage == 0:
+				return ["1. Ustaw zworki jak na schemacie fabrycznym.",
+					"2. Odwróć te z notatki Farmera (dioda jest czerwona).",
+					"3. ZATWIERDŹ."]
+			if stage == 1:
+				return ["Liczby same się zmieniają. Wciśnij, gdy para pasuje:",
+					"zielona lampka: razem 10, pomarańczowa: różnica 4.",
+					"3 trafienia, pudło zabiera jedno."]
+			return ["Trzymaj przycisk do 100% rozładowania.",
+				"Puść, zanim kondensatory się przegrzeją."]
+		"a3":
+			if stage == 0:
+				return ["1. T3 = licznik główny - T1 - T2.",
+					"2. Klikaj T od najmocniejszego (CLR: od nowa).",
+					"3. Faza: zewnętrzna ze zmienionym znakiem.",
+					"4. ZATWIERDŹ."]
+			return ["Wygaszanie idzie samo.",
+				"Wybity (czerwony) bezpiecznik je zatrzymuje: kliknij go."]
+	return []
 
 
 func _advance_stage(next_st: int, msg: String) -> void:
@@ -477,8 +513,9 @@ func _draw() -> void:
 	draw_rect(Rect2(Vector2.ZERO, PANEL), bg)
 	draw_rect(Rect2(Vector2.ZERO, PANEL), border, false, 1.0)
 
-	var hdr := "ANTENA 1 [HARD]" if ant_id == "a1" else ("ANTENA 2 [HARD]" if ant_id == "a2" else "ANTENA 3 [HARD]")
-	draw_string(f, Vector2(5, 10), hdr, HORIZONTAL_ALIGNMENT_LEFT, -1, fs, Color("ffe08a"))
+	draw_string(f, Vector2(5, 10), "ANTENA %s" % ant_id.substr(1), HORIZONTAL_ALIGNMENT_LEFT, -1, fs, Color("ffe08a"))
+	draw_string(f, Vector2(0, 10), "ETAP %d/%d" % [stage + 1, STAGES.get(ant_id, 1)], HORIZONTAL_ALIGNMENT_RIGHT,
+		PANEL.x - (16 if ant_id == "a2" and stage == 0 else 5), fs, Color("9fd8ff"))
 	draw_string(f, Vector2(5, 20), status_msg, HORIZONTAL_ALIGNMENT_LEFT, PANEL.x - 10, fs,
 		Color("8fe0a0") if status_ok else Color("ff6a5a"))
 
