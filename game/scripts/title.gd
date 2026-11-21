@@ -227,12 +227,9 @@ func _draw() -> void:
 	if beacon_on:
 		draw_rect(Rect2(248, 57, 4, 4), Color("ff2a2a"))
 		draw_circle(Vector2(250, 59), 10.0, Color(1, 0.1, 0.1, 0.12))
-	_center(f, "ABONENT NIEDOSTĘPNY", 34, fs * 2, Color("e8e8e8"))
+	_center(f, "ABONENT NIEDOSTĘPNY", 40, fs * 2, Color("e8e8e8"))
 	if _net_screen:
-		_center(f, "GRA PRZEZ SIEĆ", 54, fs, Color("ff6a5a"))
-	else:
-		_center(f, "Wszyscy przywracają zasięg.", 50, fs, Color("ff6a5a"))
-		_center(f, "My go wyłączamy.", 59, fs, Color("ff6a5a"))
+		_center(f, "GRA PRZEZ SIEĆ", 56, fs, Color("ff6a5a"))
 
 	var x0 := (size.x - ROW_W) / 2.0
 	if not _net_screen:

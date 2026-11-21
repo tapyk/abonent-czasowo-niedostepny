@@ -3,6 +3,8 @@ extends Control
 
 const W := 210
 const BOTTOM := 177.0
+## Touch controls: the strip's top edge (centred under the status strip, away from the thumbs).
+const TOUCH_TOP := 26.0
 const PAD := 4.0
 const LINE := 9.0
 
@@ -113,13 +115,26 @@ func _show_line(speaker: String, text: String, radio: bool) -> void:
 		W - PAD * 2, Art.FONT_SIZE).y / LINE))
 	_h = PAD + LINE + lines * LINE + 2.0
 	size = Vector2(W, _h)
-	position.y = BOTTOM - _h
+	_place()
 	_active = true
 	visible = true
 	_set_lock()
 	Sfx.set_static(Game.radio_noise() if _radio else 0.0)
 	if _radio:
 		Sfx.play("beep", 0.0, -10.0)
+
+
+## On a phone the bottom-left corner is under the thumb and the stick (and a press there
+## would skip the line), so in play the strip sits up top; hack panels and cutscenes keep it low.
+func _place() -> void:
+	if Touch.active and not Game.hacking and not Game.cutscene:
+		position = Vector2(roundf((320.0 - W) / 2.0), TOUCH_TOP)
+	else:
+		position = Vector2(3, BOTTOM - _h)
+
+
+func is_top() -> bool:
+	return position.y < BOTTOM / 2.0
 
 
 func begin_conversation() -> void:
@@ -160,6 +175,7 @@ func _corrupt(text: String) -> String:
 func _process(delta: float) -> void:
 	if not _active:
 		return
+	_place()
 	_led += delta
 	if _shown < _full.length():
 		_shown += CPS * delta

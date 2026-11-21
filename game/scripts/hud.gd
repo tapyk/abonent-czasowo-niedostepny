@@ -207,6 +207,11 @@ func _process(delta: float) -> void:
 	crosshair.visible = not Game.cutscene
 	objective.visible = not Game.hacking and not Game.cutscene
 	hint.visible = not panel_open and not Game.cutscene
+	# touch: the dialog strip sits up top, so the tip goes just under it
+	var hint_y := 25.0 if Game.coop else 22.0
+	if dialog.visible and dialog.is_top():
+		hint_y = dialog.position.y + dialog.size.y + 2.0
+	hint.position.y = hint_y
 	var p := Game.player
 	var p2 := Game.player2
 	if Game.cutscene:
