@@ -26,6 +26,7 @@ func _ready() -> void:
 		main.player.global_position = main.level.feet(int(parts[0]), int(parts[1]))
 		main.player.camera.reset_smoothing()
 	Game.stats_changed.emit()
+	Game.save_state()  # dev-given items survive a death
 	if Game.dev.has("autotest"):
 		_autotest.call_deferred()
 	elif Game.dev.has("hack"):
@@ -91,6 +92,20 @@ func _autotest() -> void:
 	_check("starts at home", Game.current_map == "home")
 	_check("no pistol at start", not Game.has_pistol and Game.ammo == 0)
 	_check("without a pistol LPM punches instead of shooting", not p.can_shoot())
+	_check("no checkpoint yet: death returns to start stats",
+		Game._saved.ammo == 0 and Game._saved.parts == 0 and not Game._saved.has_pistol and Game._saved.gone.is_empty())
+	var start := p.global_position
+	Input.action_press("move_right")
+	Input.action_press("move_down")
+	await _wait(0.3)
+	Input.action_release("move_right")
+	Input.action_release("move_down")
+	var moved := p.global_position - start
+	_check("walks diagonally", moved.x > 6.0 and absf(moved.x - moved.y) < 2.0, str(moved))
+	var to_mouse := p.get_global_mouse_position() - (p.global_position + Vector2(0, -6))
+	_check("flashlight points at the mouse cursor",
+		absf(angle_difference(p.facing_node.rotation, to_mouse.angle())) < 0.1,
+		"%.2f vs %.2f" % [p.facing_node.rotation, to_mouse.angle()])
 	var voice: AudioStreamWAV = Sfx._make_voice(Sfx.VOICES["Mama"], true)
 	_check("voice blips synthesized per speaker", voice.data.size() > 1000, str(voice.data.size()))
 	await _use_warp("world")
@@ -239,12 +254,22 @@ func _autotest() -> void:
 	_check("antenna 1 off, respawn moved to roof", Game.is_antenna_off("a1") and Game.respawn_map == "roof")
 
 	# --- death + respawn ---
+	var cp_ammo := Game.ammo
+	var cp_parts := Game.parts
+	Game.ammo = maxi(cp_ammo - 3, 0)
+	Game.add_part()
+	Game.mark_gone("roof:test-after-checkpoint")
+	Game.flags["test_after_checkpoint"] = true
 	Game.dev.erase("god")
 	p._invuln = 0.0
 	p.take_damage(999, p.global_position + Vector2(10, 0))
 	_check("player dies", p.dead)
 	await _wait(3.6)
 	_check("player respawns on the roof", not p.dead and p.hp == p.MAX_HP and Game.current_map == "roof")
+	_check("death rolls ammo and parts back to the checkpoint", Game.ammo == cp_ammo and Game.parts == cp_parts,
+		"ammo %d/%d parts %d/%d" % [Game.ammo, cp_ammo, Game.parts, cp_parts])
+	_check("death brings back the world since the checkpoint",
+		not Game.is_gone("roof:test-after-checkpoint") and not Game.flags.has("test_after_checkpoint"))
 	Game.dev["god"] = true
 
 	# --- horde 1 gone, horde 2 still on the road ---

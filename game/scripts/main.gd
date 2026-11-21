@@ -384,9 +384,7 @@ func _on_player_died() -> void:
 	hud.show_big("ABONENT NIEDOSTĘPNY", Color("ff4a3a"), 1.4)
 	await hud.fade(0.9, 0.8).finished
 	await get_tree().create_timer(1.6).timeout
-	if Game.has_pistol:
-		Game.ammo = maxi(Game.ammo, 5)
-		Game.stats_changed.emit()
+	Game.restore_state()
 	load_map(Game.respawn_map, Game.respawn_cell)
 	player.respawn()
 	hud.fade(0.0, 0.6)

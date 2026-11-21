@@ -39,6 +39,8 @@ var ammo := 0
 ## Persistent world changes, keyed "map:x,y" -> true.
 var gone := {}
 var flags := {}
+## Progress as it was at the last checkpoint (or the start); death rolls back to it.
+var _saved := {}
 
 ## Dev/test options parsed from the command line (after `--`).
 var dev := {}
@@ -83,6 +85,7 @@ func new_game() -> void:
 	ammo = 0
 	gone.clear()
 	flags.clear()
+	save_state()
 
 
 func register_antenna(a: Node) -> void:
@@ -113,6 +116,7 @@ func notify_antenna_disabled(a: Node, respawn_at: Vector2i) -> void:
 	respawn_cell = respawn_at
 	antenna_disabled.emit(a)
 	stats_changed.emit()
+	save_state()
 
 
 ## Persistent removal of map objects (pickups, thickets, killed mutants).
@@ -138,6 +142,33 @@ func has(item: String) -> bool:
 func set_checkpoint(map_name: String, cell: Vector2i) -> void:
 	respawn_map = map_name
 	respawn_cell = cell
+	save_state()
+
+
+## Remember ammo, parts, items and the world.
+func save_state() -> void:
+	_saved = {
+		"ammo": ammo, "parts": parts,
+		"has_pistol": has_pistol, "has_sekator": has_sekator,
+		"has_cable": has_cable, "has_kable": has_kable,
+		"gone": gone.duplicate(), "flags": flags.duplicate(true),
+	}
+
+
+## After death: everything since the last checkpoint is undone.
+func restore_state() -> void:
+	if _saved.is_empty():
+		return
+	ammo = _saved.ammo
+	parts = _saved.parts
+	has_pistol = _saved.has_pistol
+	has_sekator = _saved.has_sekator
+	has_cable = _saved.has_cable
+	has_kable = _saved.has_kable
+	gone = _saved.gone.duplicate()
+	flags = _saved.flags.duplicate(true)
+	error_boost = 0.0
+	stats_changed.emit()
 
 
 func add_error() -> void:

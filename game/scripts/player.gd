@@ -13,7 +13,7 @@ const MELEE_RANGE := 20.0
 const MAX_HP := 100
 const INVULN := 0.9
 const BUSH_SLOW := 0.55
-const DIRS := {"move_left": Vector2.LEFT, "move_right": Vector2.RIGHT, "move_up": Vector2.UP, "move_down": Vector2.DOWN}
+const LIGHT_TURN := 14.0    # how fast the flashlight follows the cursor
 
 @onready var sprite: AnimatedSprite2D = $Sprite
 @onready var facing_node: Node2D = $Facing
@@ -31,7 +31,6 @@ var riding := false
 var in_bush := 0
 var _aim := Vector2.ZERO
 var _aim_t := 0.0
-var _held: Array[String] = []
 var _fire_cd := 0.0
 var _melee_cd := 0.0
 var _invuln := 0.0
@@ -69,11 +68,13 @@ func _physics_process(delta: float) -> void:
 	sprite.modulate.a = 0.6 if Game.player_hidden else 1.0
 	sprite.visible = not (_invuln > 0.0 and not dead and int(_invuln * 20.0) % 2 == 1)
 
-	_track_input()
 	var dir := Vector2.ZERO
-	if not (dead or hacking or frozen or riding) and not _held.is_empty():
-		dir = DIRS[_held.back()]
-		facing = dir
+	if not (dead or hacking or frozen or riding):
+		dir = Input.get_vector("move_left", "move_right", "move_up", "move_down")
+		if dir != Vector2.ZERO:
+			# Snap to 8 directions so diagonals are exact and the speed stays the same.
+			dir = Vector2.RIGHT.rotated(snappedf(dir.angle(), PI / 4.0))
+			facing = dir
 	var speed := SPEED * (BUSH_SLOW if in_bush > 0 else 1.0)
 	_knock = _knock.move_toward(Vector2.ZERO, 900.0 * delta)
 	if not riding:
@@ -95,17 +96,8 @@ func _physics_process(delta: float) -> void:
 	else:
 		current_interactable = null
 	_footsteps(delta, dir)
+	_aim_light(delta)
 	_animate(dir)
-
-
-## Keeps the order of held direction keys so the newest one wins.
-func _track_input() -> void:
-	for a in DIRS:
-		if Input.is_action_pressed(a):
-			if not _held.has(a):
-				_held.append(a)
-		else:
-			_held.erase(a)
 
 
 ## Mouse button held -> aim at the cursor (and turn that way); otherwise facing.
@@ -257,14 +249,29 @@ func _footsteps(delta: float, dir: Vector2) -> void:
 		_step_t = 0.0
 
 
+## Flashlight (and muzzle) turn toward the mouse cursor.
+func _aim_light(delta: float) -> void:
+	var want := facing.angle()
+	if _aim_t > 0.0:
+		want = _aim.angle()
+	elif not (dead or frozen or hacking):
+		var d := get_global_mouse_position() - (global_position + Vector2(0, -6))
+		if d.length() > 2.0:
+			want = d.angle()
+	facing_node.rotation = lerp_angle(facing_node.rotation, want, minf(1.0, delta * LIGHT_TURN))
+
+
 func _animate(dir: Vector2) -> void:
-	facing_node.rotation = _aim.angle() if _aim_t > 0.0 else facing.angle()
 	var kind := "walk" if dir != Vector2.ZERO else "idle"
 	if dead:
 		kind = "hurt"
 	elif _melee_anim > 0.0:
 		kind = "attack"
-	var anim := CharacterArt.anim_name(sprite.sprite_frames, kind, facing)
-	sprite.flip_h = CharacterArt.flip_for(sprite.sprite_frames, facing)
+	# Sprites have 4 directions: diagonals use the side view.
+	var look := facing
+	if absf(look.x) > 0.1 and absf(look.y) > 0.1:
+		look = Vector2(signf(look.x), 0)
+	var anim := CharacterArt.anim_name(sprite.sprite_frames, kind, look)
+	sprite.flip_h = CharacterArt.flip_for(sprite.sprite_frames, look)
 	if sprite.animation != anim:
 		sprite.play(anim)
