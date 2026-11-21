@@ -1,14 +1,20 @@
 name: Build
 
+# Builds every push. On main, when VERSION holds a version higher than the
+# newest v* tag, also publishes a GitHub release with the built files.
+
 on:
   push:
     branches: ["**"]
-    tags: ["v*"]
   workflow_dispatch:
 
 concurrency:
   group: build-${{ github.ref }}
-  cancel-in-progress: true
+  # Never cancel a run on main: it may be in the middle of publishing a release.
+  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
+
+permissions:
+  contents: read
 
 env:
   GODOT_VERSION: "4.7.2"
@@ -17,8 +23,46 @@ env:
   EXE_NAME: AbonentNiedostepny
 
 jobs:
+  version:
+    name: Version
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.v.outputs.version }}
+      code: ${{ steps.v.outputs.code }}
+      release: ${{ steps.v.outputs.release }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Read VERSION
+        id: v
+        run: |
+          set -euo pipefail
+          VERSION="$(tr -d ' \r\n' < VERSION)"
+          if ! [[ "$VERSION" =~ ^([0-9]+)\.([0-9]+)\.([0-9]+)$ ]]; then
+            echo "::error file=VERSION::VERSION must look like MAJOR.MINOR.PATCH, got '$VERSION'"
+            exit 1
+          fi
+          # Android versionCode must grow with every release.
+          CODE=$(( BASH_REMATCH[1] * 1000000 + BASH_REMATCH[2] * 1000 + BASH_REMATCH[3] ))
+
+          LATEST="$(git ls-remote --tags --refs origin 'refs/tags/v*' \
+            | sed 's#.*refs/tags/v##' | grep -E '^[0-9]+\.[0-9]+\.[0-9]+$' | sort -V | tail -n1 || true)"
+          RELEASE=false
+          if [ "$GITHUB_REF" = "refs/heads/main" ]; then
+            if [ -z "$LATEST" ] || [ "$(printf '%s\n%s\n' "$LATEST" "$VERSION" | sort -V | tail -n1)" != "$LATEST" ]; then
+              RELEASE=true
+            fi
+          fi
+          echo "VERSION=$VERSION  versionCode=$CODE  latest tag=${LATEST:-none}  release=$RELEASE"
+          {
+            echo "version=$VERSION"
+            echo "code=$CODE"
+            echo "release=$RELEASE"
+          } >> "$GITHUB_OUTPUT"
+
   export:
     name: ${{ matrix.preset }}
+    needs: version
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
@@ -32,13 +76,28 @@ jobs:
             file: AbonentNiedostepny.x86_64
           - preset: macOS
             dir: macos
-            file: AbonentNiedostepny.zip
+            file: AbonentNiedostepny-macOS.zip
           - preset: Android
             dir: android
             file: AbonentNiedostepny.apk
 
     steps:
       - uses: actions/checkout@v4
+
+      - name: Stamp version ${{ needs.version.outputs.version }}
+        env:
+          VERSION: ${{ needs.version.outputs.version }}
+          CODE: ${{ needs.version.outputs.code }}
+        run: |
+          set -euo pipefail
+          sed -i -E \
+            -e "s#^(application/(file_version|product_version|short_version|version))=.*#\1=\"$VERSION\"#" \
+            -e "s#^version/name=.*#version/name=\"$VERSION\"#" \
+            -e "s#^version/code=.*#version/code=$CODE#" \
+            "$PROJECT_DIR/export_presets.cfg"
+          sed -i '/^config\/version=/d' "$PROJECT_DIR/project.godot"
+          sed -i "/^\[application\]/a config/version=\"$VERSION\"" "$PROJECT_DIR/project.godot"
+          grep -n 'version' "$PROJECT_DIR/export_presets.cfg" "$PROJECT_DIR/project.godot"
 
       - name: Cache Godot + export templates
         id: cache-godot
@@ -150,5 +209,33 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: ${{ env.EXE_NAME }}-${{ matrix.dir }}
-          path: export/${{ matrix.dir }}/
+          path: export/${{ matrix.dir }}/${{ matrix.file }}
           if-no-files-found: error
+
+  release:
+    name: Release v${{ needs.version.outputs.version }}
+    needs: [version, export]
+    if: needs.version.outputs.release == 'true'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Download builds
+        uses: actions/download-artifact@v4
+        with:
+          pattern: ${{ env.EXE_NAME }}-*
+          path: dist
+          merge-multiple: true
+
+      - name: Publish release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          VERSION: ${{ needs.version.outputs.version }}
+        run: |
+          set -euo pipefail
+          ls -la dist
+          gh release create "v$VERSION" dist/* \
+            --target "$GITHUB_SHA" \
+            --title "Abonent Niedostępny $VERSION" \
+            --generate-notes
