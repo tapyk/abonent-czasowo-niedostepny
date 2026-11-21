@@ -21,6 +21,12 @@ var _conv := false
 var _active := false
 var _led := 0.0
 var _typed := 0
+## Speaker of the line before this one in the same run of lines ("" at the start).
+var _prev_speaker := ""
+## Online client: the host says whether this line is muttered (see is_mutter()).
+var _mirror_mutter := false
+## Who can mutter to himself (the players).
+const SELF_TALKERS := ["Johnny", "Białawski"]
 
 
 func _ready() -> void:
@@ -61,13 +67,32 @@ func _next() -> void:
 		Net.send_dialog_end()
 		return
 	var q: Array = _queue.pop_front()
+	_prev_speaker = _speaker if _active else ""
 	_urgent = q[3]
 	_show_line(q[0], _corrupt(q[1]) if q[2] else q[1], q[2])
-	Net.send_dialog_line(_speaker, _full, _radio)
+	# at the end of the frame, once the rest of this run of lines is queued
+	_send_line.call_deferred()
+
+
+func _send_line() -> void:
+	if _active:
+		Net.send_dialog_line(_speaker, _full, _radio, is_mutter())
+
+
+## Johnny (or Białawski) talking to himself.
+func is_mutter() -> bool:
+	if Net.is_client():
+		return _mirror_mutter
+	if _radio or _conv or not _speaker in SELF_TALKERS:
+		return false
+	if _prev_speaker != "" and _prev_speaker != _speaker:
+		return false
+	return _queue.is_empty() or _queue[0][0] == _speaker
 
 
 ## Online client: the host started this line (already corrupted on the host).
-func mirror_line(speaker: String, text: String, radio: bool) -> void:
+func mirror_line(speaker: String, text: String, radio: bool, mutter := false) -> void:
+	_mirror_mutter = mutter
 	_show_line(speaker, text, radio)
 
 
@@ -187,8 +212,13 @@ func _draw() -> void:
 		label += "  (radio)"
 		# walkie-talkie LED
 		draw_rect(Rect2(W - 6, 3, 2, 2), Color("ff3a2a") if fmod(_led, 0.5) < 0.25 else Color("5a1a14"))
+	var text_col := Color("e6e6e6")
+	if is_mutter():
+		# under his breath: fainter name and text
+		name_col.a = 0.55
+		text_col.a = 0.5
 	draw_string(f, Vector2(PAD, PAD + 5), label, HORIZONTAL_ALIGNMENT_LEFT, -1, fs, name_col)
 	if Game.dialog_lock and fmod(_led, 1.0) < 0.7:
 		draw_string(f, Vector2(0, PAD + 5), "[Enter]", HORIZONTAL_ALIGNMENT_RIGHT, W - PAD, fs, Color("8a929c"))
 	var txt := _full.substr(0, int(_shown))
-	draw_multiline_string(f, Vector2(PAD, PAD + 5 + LINE), txt, HORIZONTAL_ALIGNMENT_LEFT, W - PAD * 2, fs, -1, Color("e6e6e6"))
+	draw_multiline_string(f, Vector2(PAD, PAD + 5 + LINE), txt, HORIZONTAL_ALIGNMENT_LEFT, W - PAD * 2, fs, -1, text_col)

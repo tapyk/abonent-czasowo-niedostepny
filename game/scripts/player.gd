@@ -315,7 +315,7 @@ func melee(dir := Vector2.ZERO) -> void:
 
 
 func take_damage(amount: int, from: Vector2) -> void:
-	if dead or _invuln > 0.0 or Game.dev.has("god"):
+	if dead or _invuln > 0.0 or Game.dev.has("god") or Game.cutscene:
 		return
 	hp = maxi(hp - amount, 0)
 	_invuln = INVULN

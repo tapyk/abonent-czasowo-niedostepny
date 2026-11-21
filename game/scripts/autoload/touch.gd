@@ -77,7 +77,7 @@ func _story() -> Node:
 
 ## The game scene is up and no menu covers it: stick and buttons are live.
 func _in_game() -> bool:
-	return _story() != null and not Game.menu_open
+	return _story() != null and not Game.menu_open and not Game.cutscene
 
 
 func _buttons() -> Array:

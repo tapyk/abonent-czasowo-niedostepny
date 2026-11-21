@@ -453,7 +453,7 @@ func _spawn(c: String, x: int, y: int) -> void:
 				node.need = "kable"
 				c = "A"
 			elif not def.is_empty() and def[0] == "horde":
-				if not Game.is_antenna_off(def[1]):
+				if not Game.horde_gone(def[1]):
 					node = HORDE.new()
 					node.antenna_id = def[1]
 			elif not def.is_empty() and def[0] == "zip":

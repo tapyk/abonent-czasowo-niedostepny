@@ -62,7 +62,7 @@ func _ready() -> void:
 
 
 func _physics_process(delta: float) -> void:
-	if Game.dialog_lock and state != State.DEAD:
+	if (Game.dialog_lock or Game.cutscene) and state != State.DEAD:
 		# conversation on screen: everyone waits
 		velocity = Vector2.ZERO
 		_animate(Vector2.ZERO)

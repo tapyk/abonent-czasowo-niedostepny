@@ -202,14 +202,14 @@ func map_loaded() -> void:
 	_force_state = true
 
 
-func send_dialog_line(speaker: String, text: String, radio: bool) -> void:
+func send_dialog_line(speaker: String, text: String, radio: bool, mutter := false) -> void:
 	if is_host() and _has_peer():
-		_rpc_dialog.rpc(speaker, text, radio, true)
+		_rpc_dialog.rpc(speaker, text, radio, true, mutter)
 
 
 func send_dialog_end() -> void:
 	if is_host() and _has_peer():
-		_rpc_dialog.rpc("", "", false, false)
+		_rpc_dialog.rpc("", "", false, false, false)
 
 
 func send_hud(method: String, args: Array) -> void:
@@ -267,13 +267,13 @@ func _rpc_snap(s: Dictionary) -> void:
 
 
 @rpc("authority", "call_remote", "reliable")
-func _rpc_dialog(speaker: String, text: String, radio: bool, show: bool) -> void:
+func _rpc_dialog(speaker: String, text: String, radio: bool, show: bool, mutter: bool) -> void:
 	var story := _story()
 	if story == null:
-		_pending_dialog = [speaker, text, radio] if show else []
+		_pending_dialog = [speaker, text, radio, mutter] if show else []
 		return
 	if show:
-		story.hud.dialog.mirror_line(speaker, text, radio)
+		story.hud.dialog.mirror_line(speaker, text, radio, mutter)
 	else:
 		story.hud.dialog.mirror_end()
 
@@ -281,7 +281,7 @@ func _rpc_dialog(speaker: String, text: String, radio: bool, show: bool) -> void
 ## Client: show the line that was on the host's screen when we arrived.
 func flush_pending_dialog(dialog: Control) -> void:
 	if not _pending_dialog.is_empty():
-		dialog.mirror_line(_pending_dialog[0], _pending_dialog[1], _pending_dialog[2])
+		dialog.mirror_line(_pending_dialog[0], _pending_dialog[1], _pending_dialog[2], _pending_dialog[3])
 	_pending_dialog = []
 
 

@@ -28,6 +28,8 @@ var _dying := false
 var _ending := false
 var _objective := ""
 var _announced_return := ""
+## The camera is driven by a cutscene, not by the players.
+var _cam_hold := false
 # online client: host mutants / drops shown here (net id -> node), host map revision
 var _puppets := {}
 var _drops := {}
@@ -243,6 +245,8 @@ func objective() -> String:
 	if not Game.has_kable:
 		if not Game.flags.has("farmer_met"):
 			return "Na wschód: stodoła Fasti Farmera na polach."
+		if Game.parts >= PARTS_NEEDED:
+			return "Zanieś części Fasti Farmerowi."
 		return "Części od spalonych: %d/%d." % [Game.parts, PARTS_NEEDED]
 	if not Game.is_antenna_off("a2"):
 		return "Plantacja na wschodzie: zhakuj antenę 2."
@@ -306,7 +310,7 @@ func _update_objective() -> void:
 
 ## The person the player has to go back to now that their task is done, or {}.
 func return_target() -> Dictionary:
-	if Game.flags.has("farmer_met") and Game.parts >= PARTS_NEEDED and not Game.has_kable:
+	if Game.is_antenna_off("a2") and not Game.flags.has("farmer_report"):
 		return {"map": "stodola", "npc": "farmer", "text": "Wróć do Fasti Farmera."}
 	if _trybunal_done() and not Game.flags.has("braun_done"):
 		return {"map": "trybunal", "npc": "braun", "text": "Wróć do Brauna."}
@@ -398,7 +402,7 @@ func on_trigger(id: String) -> void:
 func npc_has_news(id: String) -> bool:
 	match id:
 		"farmer":
-			return not Game.flags.has("farmer_met") or (Game.parts >= PARTS_NEEDED and not Game.has_kable)
+			return not Game.flags.has("farmer_met") or (Game.parts >= PARTS_NEEDED and not Game.has_kable) 				or (Game.is_antenna_off("a2") and not Game.flags.has("farmer_report"))
 		"braun":
 			if Game.current_map == "mama":
 				return Game.flags.has("mama_met")
@@ -430,11 +434,45 @@ func _plane_crash() -> void:
 	Game.flags["plane_crashed"] = true
 	if Game._saved.has("flags"):
 		Game._saved.flags["plane_crashed"] = true  # dying doesn't replay the crash
-	await get_tree().create_timer(1.2).timeout
+	await get_tree().create_timer(0.6).timeout  # the door's fade-in first
 	if Game.current_map != "world":
 		return
 	Net.send_wreck_fall()
-	_spawn_wreck(true)
+	_crash_cutscene(true)
+
+
+## Hard cutscene when Johnny comes out of the block after antenna 1.
+func _crash_cutscene(host_side: bool) -> void:
+	_busy = true
+	Game.cutscene = true
+	for p in [player, player2]:
+		if is_instance_valid(p):
+			p.frozen = true
+	hud.cinematic(true)
+	var cam: Camera2D = player.camera
+	_cam_hold = true
+	var crash_view: Vector2 = level.feet(WRECK_CELL.x, WRECK_CELL.y) + Vector2(0, -24)
+	var fly := create_tween()
+	fly.tween_property(cam, "global_position", crash_view, 1.1).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
+	await fly.finished
+	await _spawn_wreck(true)  # the fall, the blast and (on the host) the mutants
+	await get_tree().create_timer(1.8).timeout  # a look at what crawls out
+	var home := player.global_position
+	if is_instance_valid(player2):
+		home = (player.global_position + player2.global_position) * 0.5
+	fly = create_tween()
+	fly.tween_property(cam, "global_position", home + Vector2(0, -8), 0.9).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
+	await fly.finished
+	cam.position = Vector2(0, -8)
+	_cam_hold = false
+	hud.cinematic(false)
+	for p in [player, player2]:
+		if is_instance_valid(p):
+			p.frozen = false
+	Game.cutscene = false
+	_busy = false
+	if host_side:
+		Game.show_hint("Mutanci z samolotu! Strzelaj albo uciekaj.")
 
 
 func _spawn_wreck(falling: bool) -> void:
@@ -566,7 +604,8 @@ func _update_coop_camera_and_tether() -> void:
 		target = (player.global_position + player2.global_position) * 0.5
 	elif player.dead and not player2.dead:
 		target = player2.global_position
-	player.camera.global_position = target + Vector2(0, -8)
+	if not _cam_hold:
+		player.camera.global_position = target + Vector2(0, -8)
 
 
 func _talk_farmer() -> void:
@@ -582,6 +621,16 @@ func _talk_farmer() -> void:
 		_farmer_hard_tip()
 		if Game.parts < PARTS_NEEDED:
 			return
+	if Game.is_antenna_off("a2") and not Game.flags.has("farmer_report"):
+		# back after the plantation: he knows the way east, and the road horde is gone
+		Game.flags["farmer_report"] = true
+		Game.save_state()
+		save_game.call_deferred(true)
+		Game.say_line("Farmer", "Plantacja cicho? Słyszę, bo nic nie słyszę.")
+		Game.say_line("Farmer", "Horda z drogi poszła za ostatnim sygnałem. Droga na wschód wolna.")
+		Game.say_line("Farmer", "Za drogą szczelina, nad nią tyrolka. Dalej Trybunał CURN. Ostatnia antena.")
+		Game.say_line("Johnny", "Ostatnia. Brzmi dobrze.")
+		return
 	if Game.has_kable:
 		Game.say_line("Farmer", "Kable masz. Antena jest na plantacji na wschodzie. Cayo Perico, tylko ze spalonymi.")
 		_farmer_hard_tip()
@@ -708,10 +757,9 @@ func _on_antenna_disabled(a: Node) -> void:
 			Game.say_line("Mama", "Fasti Farmer na polach ma kable do anten.", true)
 			Game.say_line("Johnny", "Ten od folii? Idę.")
 		"a2":
-			Game.say_line("Mama", "Druga cicho! Horda odchodzi.", true)
-			Game.say_line("Mama", "Za drogą szczelina, dalej Trybunał CURN. Ostatnia antena.", true)
+			Game.say_line("Mama", "Druga cicho!", true)
+			Game.say_line("Mama", "Wróć do Fasti Farmera. On wie, jak przejść na wschód.", true)
 			Game.say_line("Mama", "W Trybunale siedzi Donald. Pomoże, jak mu się opłaci.", true)
-			Game.say_line("Johnny", "Ostatnia. Brzmi dobrze.")
 		"a3":
 			Game.say_line("Mama", "Johnny… słyszę cię czysto.", true)
 			Game.say_line("Mama", "Jestem w domu za jeziorem. Czekam.", true)
@@ -856,7 +904,7 @@ func client_wreck_fall() -> void:
 	var old: Node = level.entities.get_node_or_null("Wreck")
 	if old != null:
 		old.free()
-	_spawn_wreck(true)
+	_crash_cutscene(false)
 
 
 func client_apply_snap(s: Dictionary) -> void:

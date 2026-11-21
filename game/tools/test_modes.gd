@@ -118,6 +118,7 @@ func _run_all() -> void:
 	await _frames(2)
 
 	_test_settings()
+	await _test_mutter(main_scn)
 	await _test_return_arrow(main_scn)
 	await _test_coop_zipline_and_wreck(main_scn)
 	_test_ammo_amounts()
@@ -127,6 +128,35 @@ func _run_all() -> void:
 
 	print("=== EXTENDED MODES TEST DONE: %d failed ===" % _failed)
 	get_tree().quit(1 if _failed > 0 else 0)
+
+
+## Johnny talking to himself is drawn fainter; talking to someone is not.
+func _test_mutter(main_scn: PackedScene) -> void:
+	Game.coop = false
+	var m := main_scn.instantiate()
+	add_child(m)
+	await _frames(2)
+	var d: Control = m.hud.dialog
+	var reset := func() -> void:
+		d._queue.clear()
+		d._next()
+	reset.call()
+	Game.say_line("Johnny", "Gąszcz. Bez sekatora nie przejdę.", false, true)
+	await get_tree().process_frame
+	_ok("a lone remark is muttered (faint)", d.is_mutter())
+	reset.call()
+	Game.say_line("Mama", "Słyszysz mnie?", true)
+	Game.say_line("Johnny", "Słyszę.")
+	d._next()
+	_ok("an answer to Mama on the radio is not muttered", d._speaker == "Johnny" and not d.is_mutter())
+	reset.call()
+	Game.say_line("Johnny", "Białawski, a twoja czapka?")
+	Game.say_line("Białawski", "Nie potrzebuję.")
+	await get_tree().process_frame
+	_ok("a question to someone is not muttered", d._speaker == "Johnny" and not d.is_mutter())
+	reset.call()
+	m.free()
+	await _frames(2)
 
 
 ## The settings box changes and applies values (without saving the player's file).
@@ -160,7 +190,12 @@ func _test_return_arrow(main_scn: PackedScene) -> void:
 	Game.disabled_ids.append("a1")
 	Game.flags["farmer_met"] = true
 	Game.parts = 3
-	_ok("3 parts: objective says go back to the Farmer", m.objective() == "Wróć do Fasti Farmera.", m.objective())
+	_ok("3 parts: bring them to the Farmer, no arrow yet", m.objective() == "Zanieś części Fasti Farmerowi."
+		and m.quest_arrow_target() == Vector2.INF, m.objective())
+	Game.parts = 0
+	Game.has_kable = true
+	Game.disabled_ids.append("a2")
+	_ok("antenna 2 off: go back to the Farmer", m.objective() == "Wróć do Fasti Farmera.", m.objective())
 	_ok("route from the roof to the barn goes through the estate", m.call("_next_map_toward", "roof", "stodola") == "world")
 	m.load_map("world")
 	await _frames(2)
@@ -174,11 +209,10 @@ func _test_return_arrow(main_scn: PackedScene) -> void:
 	await _frames(2)
 	var farmer: Node = get_tree().get_nodes_in_group("npcs").filter(func(n): return n.npc_id == "farmer")[0]
 	_ok("in the barn the arrow points at the Farmer", m.quest_arrow_target().distance_to(farmer.global_position) < 40.0)
-	Game.has_kable = true
-	_ok("after the cables: no arrow", m.quest_arrow_target() == Vector2.INF)
+	m.call("_talk_farmer")
+	_ok("after telling the Farmer: no arrow, road east open", m.quest_arrow_target() == Vector2.INF and Game.horde_gone("a2"))
 	Game.flags["trybunal_clear"] = true
 	Game.disabled_ids.append("a3")
-	Game.disabled_ids.append("a2")
 	_ok("Trybunał done: go back to Braun", m.objective() == "Wróć do Brauna.", m.objective())
 	m.free()
 	await _frames(2)

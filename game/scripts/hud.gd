@@ -17,6 +17,7 @@ var crosshair: Control
 ## Arrow to the person to go back to (main.gd quest_arrow_target()).
 var quest_arrow: Control
 var _arrow_t := 0.0
+var _bars: Array[ColorRect] = []
 var dialog: Control
 var hack: Control
 var notes_box: Control
@@ -63,6 +64,17 @@ func _ready() -> void:
 	hint.modulate.a = 0.0
 	root.add_child(hint)
 	Game.hint.connect(show_hint)
+
+	# cinematic bars for hard cutscenes (under the dialog strip, which stays readable)
+	for top in [true, false]:
+		var bar := ColorRect.new()
+		bar.color = Color.BLACK
+		bar.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		bar.size = Vector2(VIEW.x, 0)
+		bar.position.y = 0.0 if top else VIEW.y
+		bar.set_meta("top", top)
+		root.add_child(bar)
+		_bars.append(bar)
 
 	dialog = DialogBox.new()
 	dialog.position = Vector2(3, 150)
@@ -146,7 +158,7 @@ func set_hp2(v: int, m: int) -> void:
 
 ## On screen: a bobbing arrow above the person (or door).
 func _draw_quest_arrow() -> void:
-	if Game.hacking or Game.menu_open:
+	if Game.hacking or Game.menu_open or Game.cutscene:
 		return
 	var story := get_tree().get_first_node_in_group("story")
 	if story == null or not story.has_method("quest_arrow_target"):
@@ -189,17 +201,35 @@ func _process(delta: float) -> void:
 	quest_arrow.queue_redraw()
 	crosshair.queue_redraw()
 	var panel_open := Game.hacking or (is_instance_valid(notes_box) and notes_box.visible)
-	objective.visible = not Game.hacking
-	hint.visible = not panel_open
+	# a cutscene shows only the picture (and the dialog strip)
+	status.visible = not Game.cutscene
+	tablet.visible = not Game.cutscene
+	crosshair.visible = not Game.cutscene
+	objective.visible = not Game.hacking and not Game.cutscene
+	hint.visible = not panel_open and not Game.cutscene
 	var p := Game.player
 	var p2 := Game.player2
-	if is_instance_valid(p) and p.current_interactable and not p.hacking and not p.dead:
+	if Game.cutscene:
+		prompt.text = ""
+	elif is_instance_valid(p) and p.current_interactable and not p.hacking and not p.dead:
 		prompt.text = p.current_interactable.prompt()
 	elif Game.coop and is_instance_valid(p2) and p2.current_interactable and not p2.hacking and not p2.dead:
 		var p2_prompt: String = p2.current_interactable.prompt()
 		prompt.text = p2_prompt.replace("[E]", "[L]") if Game.is_shared_p2(p2) else p2_prompt
 	else:
 		prompt.text = ""
+
+
+## Black bars in / out for a hard cutscene.
+func cinematic(on: bool) -> void:
+	for bar in _bars:
+		var h := 18.0 if on else 0.0
+		var tw := bar.create_tween().set_parallel(true)
+		tw.tween_property(bar, "size:y", h, 0.4)
+		if not bar.get_meta("top"):
+			tw.tween_property(bar, "position:y", VIEW.y - h, 0.4)
+		else:
+			bar.position.y = 0.0
 
 
 func show_big(text: String, color: Color, hold := 1.5) -> void:

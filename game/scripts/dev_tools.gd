@@ -332,6 +332,16 @@ func _autotest() -> void:
 	# --- horde 1 gone, horde 2 still on the road ---
 	await _use_warp("world")
 	_check("back in the world", Game.current_map == "world")
+	# the jet comes down as a hard cutscene: nobody moves until it's over
+	await _wait(1.0)
+	_check("jet crash plays as a hard cutscene", Game.cutscene and p.frozen)
+	var waited_cut := 0.0
+	while Game.cutscene and waited_cut < 12.0:
+		await _wait(0.25)
+		waited_cut += 0.25
+	_check("after the cutscene Johnny moves again", not Game.cutscene and not p.frozen, "%.1f s" % waited_cut)
+	for e in get_tree().get_nodes_in_group("enemies"):
+		e.set_physics_process(false)  # the jet's mutants: not part of this test
 	var hordes := get_tree().get_nodes_in_group("interactable").filter(func(n): return n.get_script() == preload("res://scripts/horde.gd"))
 	_check("horde 1 left after antenna 1 went silent", not hordes.any(func(h): return h.antenna_id == "a1"))
 	_check("horde 2 still blocks the road to the crevice", hordes.any(func(h): return h.antenna_id == "a2"))
@@ -375,7 +385,15 @@ func _autotest() -> void:
 	main.load_map("world", Vector2i(100, 12))
 	await _frames(2)
 	hordes = get_tree().get_nodes_in_group("interactable").filter(func(n): return n.get_script() == preload("res://scripts/horde.gd"))
-	_check("horde 2 left after antenna 2 went silent", hordes.is_empty())
+	_check("horde 2 waits until the Farmer hears about antenna 2",
+		not hordes.is_empty() and hordes.all(func(h): return h.antenna_id == "a2"), str(hordes.size()))
+	_check("objective: back to the Farmer", main.objective() == "Wróć do Fasti Farmera.", main.objective())
+	main.call("_talk_farmer")
+	_check("Farmer told: the road east opens", Game.flags.has("farmer_report"))
+	main.load_map("world", Vector2i(100, 12))
+	await _frames(2)
+	hordes = get_tree().get_nodes_in_group("interactable").filter(func(n): return n.get_script() == preload("res://scripts/horde.gd"))
+	_check("horde 2 gone after reporting to the Farmer", hordes.is_empty())
 
 	# --- crevice: zipline + zipline mutant ---
 	await _use_warp("szczelina")

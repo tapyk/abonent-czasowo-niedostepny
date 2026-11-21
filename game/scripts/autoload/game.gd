@@ -22,6 +22,8 @@ var hacking := false
 var dialog_lock := false
 ## The pause menu is open (online co-op keeps running behind it, so input must wait).
 var menu_open := false
+## A hard cutscene runs (main.gd _crash_cutscene): nobody moves, nothing gets hurt.
+var cutscene := false
 var player: Node2D = null
 var player2: Node2D = null
 var player_hidden := false
@@ -86,6 +88,7 @@ func _dev_shot() -> void:
 func new_game() -> void:
 	dialog_lock = false
 	menu_open = false
+	cutscene = false
 	bars = 0
 	error_boost = 0.0
 	hacking = false
@@ -214,6 +217,11 @@ func active_antennas() -> Array:
 
 func is_antenna_off(id: String) -> bool:
 	return disabled_ids.has(id)
+
+
+## A road horde has left.
+func horde_gone(antenna_id: String) -> bool:
+	return is_antenna_off(antenna_id) and (antenna_id != "a2" or flags.has("farmer_report"))
 
 
 ## 0.0 = clear radio, 1.0 = everything drowned in static.
