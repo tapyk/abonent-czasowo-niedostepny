@@ -70,16 +70,19 @@ jobs:
         include:
           - preset: Windows
             dir: windows
-            file: AbonentNiedostepny.exe
+            ext: exe
           - preset: Linux
             dir: linux
-            file: AbonentNiedostepny.x86_64
+            ext: x86_64
           - preset: macOS
             dir: macos
-            file: AbonentNiedostepny-macOS.zip
+            ext: zip
           - preset: Android
             dir: android
-            file: AbonentNiedostepny.apk
+            ext: apk
+    env:
+      # Build file name: <name>-<version>.<ext>, e.g. AbonentNiedostepny-0.1.1.apk
+      FILE: AbonentNiedostepny-${{ needs.version.outputs.version }}.${{ matrix.ext }}
 
     steps:
       - uses: actions/checkout@v4
@@ -198,7 +201,7 @@ jobs:
       - name: Export ${{ matrix.preset }}
         run: |
           set -euo pipefail
-          OUT="export/${{ matrix.dir }}/${{ matrix.file }}"
+          OUT="export/${{ matrix.dir }}/$FILE"
           mkdir -p "$(dirname "$OUT")"
           MODE="${EXPORT_MODE:-release}"
           godot --headless --path "$PROJECT_DIR" --export-$MODE "${{ matrix.preset }}" "../$OUT"
@@ -209,7 +212,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: ${{ env.EXE_NAME }}-${{ matrix.dir }}
-          path: export/${{ matrix.dir }}/${{ matrix.file }}
+          path: export/${{ matrix.dir }}/${{ env.FILE }}
           if-no-files-found: error
 
   release:

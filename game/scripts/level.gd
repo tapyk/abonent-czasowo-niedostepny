@@ -51,7 +51,14 @@ var _cells := {}                        # layer -> Array of [Vector2i, key]
 
 func build(name: String) -> void:
 	map_name = name
-	_parse(FileAccess.open("res://maps/%s.txt" % name, FileAccess.READ).get_as_text())
+	# Maps are plain .txt, not resources: exports only ship them because the
+	# presets list "maps/*.txt" in include_filter (export_presets.cfg).
+	var path := "res://maps/%s.txt" % name
+	var f := FileAccess.open(path, FileAccess.READ)
+	if f == null:
+		push_error("Cannot open map %s (%s)" % [path, error_string(FileAccess.get_open_error())])
+		return
+	_parse(f.get_as_text())
 	if header.has("dark"):
 		var c: PackedStringArray = str(header["dark"]).split(",")
 		darkness = Color(float(c[0]), float(c[1]), float(c[2]))
